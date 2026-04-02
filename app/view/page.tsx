@@ -1,4 +1,6 @@
 "use client";
+import ViewHeader from "@/components/ViewHeader";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 interface GP {
@@ -168,29 +170,7 @@ export default function ViewPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
-      <div
-        style={{
-          background: "var(--green-dark)",
-          padding: "14px 28px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 10,
-        }}
-      >
-        <div>
-          <h1 style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>
-            Rogmukto Bangla — View Panel
-          </h1>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
-            Sankalpa Bharat Mission
-          </p>
-        </div>
-        <a href="/login" className="btn btn-secondary btn-sm">
-          Admin Login
-        </a>
-      </div>
+      <ViewHeader />
 
       <div style={{ padding: "24px 28px" }}>
         {/* Toggle + Stats */}
