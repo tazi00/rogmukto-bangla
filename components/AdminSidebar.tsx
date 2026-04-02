@@ -40,17 +40,16 @@ export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [windowWidth, setWindowWidth] = useState<number>(
-    typeof window !== "undefined" ? window.innerWidth : 1200,
-  );
-
+  const [windowWidth, setWindowWidth] = useState<number>(1200);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    setMounted(true);
+    setWindowWidth(window.innerWidth);
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  const isMobile: boolean = windowWidth < 768;
+  const isMobile = mounted ? windowWidth < 768 : false;
 
   async function handleLogout(): Promise<void> {
     await fetch("/api/auth/logout", { method: "POST" });

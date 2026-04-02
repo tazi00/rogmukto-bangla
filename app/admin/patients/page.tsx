@@ -1,103 +1,178 @@
-'use client'
-import { useEffect, useState, useRef } from 'react'
-import PaymentModal from '@/components/PaymentModal'
+"use client";
+import { useEffect, useState, useRef } from "react";
+import PaymentModal from "@/components/PaymentModal";
 
-interface Helper { _id: string; name: string; subDivision: string; block: string; gramPanchayat: string; tag: string }
+interface Helper {
+  _id: string;
+  name: string;
+  subDivision: string;
+  block: string;
+  gramPanchayat: string;
+  tag: string;
+}
 interface Patient {
-  _id: string; name: string; mobile: string; ipdNo: string; doa: string
-  incentiveAmount: number; paymentStatus: string; paymentDetail?: any
-  helperId: { _id: string; name: string; block: string; gramPanchayat: string; subDivision: string; tag: string }
+  _id: string;
+  name: string;
+  mobile: string;
+  ipdNo: string;
+  doa: string;
+  incentiveAmount: number;
+  paymentStatus: string;
+  paymentDetail?: any;
+  helperId: {
+    _id: string;
+    name: string;
+    block: string;
+    gramPanchayat: string;
+    subDivision: string;
+    tag: string;
+  };
 }
 
-const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const MONTHS = [
-  { val: '01', label: 'January' }, { val: '02', label: 'February' }, { val: '03', label: 'March' },
-  { val: '04', label: 'April' }, { val: '05', label: 'May' }, { val: '06', label: 'June' },
-  { val: '07', label: 'July' }, { val: '08', label: 'August' }, { val: '09', label: 'September' },
-  { val: '10', label: 'October' }, { val: '11', label: 'November' }, { val: '12', label: 'December' },
-]
-const EMPTY_FORM = { name: '', mobile: '', ipdNo: '', doa: '', helperId: '', incentiveAmount: '' }
+  { val: "01", label: "January" },
+  { val: "02", label: "February" },
+  { val: "03", label: "March" },
+  { val: "04", label: "April" },
+  { val: "05", label: "May" },
+  { val: "06", label: "June" },
+  { val: "07", label: "July" },
+  { val: "08", label: "August" },
+  { val: "09", label: "September" },
+  { val: "10", label: "October" },
+  { val: "11", label: "November" },
+  { val: "12", label: "December" },
+];
+const EMPTY_FORM = {
+  name: "",
+  mobile: "",
+  ipdNo: "",
+  doa: "",
+  helperId: "",
+  incentiveAmount: "",
+};
 
 export default function AdminPatientsPage() {
-  const now = new Date()
-  const [selYear, setSelYear] = useState(String(now.getFullYear()))
-  const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'))
-  const [statusFilter, setStatusFilter] = useState('')
-  const [filterHelper, setFilterHelper] = useState('')
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [helpers, setHelpers] = useState<Helper[]>([])
-  const [defaultAmount, setDefaultAmount] = useState(200)
-  const [paymentPatient, setPaymentPatient] = useState<Patient | null>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [editPatient, setEditPatient] = useState<Patient | null>(null)
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [helperSearch, setHelperSearch] = useState('')
-  const [showHelperDrop, setShowHelperDrop] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const dropRef = useRef<HTMLDivElement>(null)
+  const now = new Date();
+  const [selYear, setSelYear] = useState(String(now.getFullYear()));
+  const [selMonth, setSelMonth] = useState(
+    String(now.getMonth() + 1).padStart(2, "0"),
+  );
+  const [statusFilter, setStatusFilter] = useState("");
+  const [filterHelper, setFilterHelper] = useState("");
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [helpers, setHelpers] = useState<Helper[]>([]);
+  const [defaultAmount, setDefaultAmount] = useState(200);
+  const [paymentPatient, setPaymentPatient] = useState<Patient | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editPatient, setEditPatient] = useState<Patient | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [helperSearch, setHelperSearch] = useState("");
+  const [showHelperDrop, setShowHelperDrop] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/api/helpers').then(r => r.json()).then(setHelpers)
-    fetch('/api/settings').then(r => r.json()).then(d => setDefaultAmount(d.defaultIncentiveAmount || 200))
-  }, [])
+    fetch("/api/helpers")
+      .then((r) => r.json())
+      .then(setHelpers);
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setDefaultAmount(d.defaultIncentiveAmount || 200));
+  }, []);
 
-  useEffect(() => { load() }, [selYear, selMonth, statusFilter])
+  useEffect(() => {
+    load();
+  }, [selYear, selMonth, statusFilter]);
 
   async function load() {
-    const month = `${selYear}-${selMonth}`
-    const params = new URLSearchParams({ month })
-    if (statusFilter) params.set('status', statusFilter)
-    const data = await fetch(`/api/patients?${params}`).then(r => r.json())
-    setPatients(Array.isArray(data) ? data : [])
+    const month = `${selYear}-${selMonth}`;
+    const params = new URLSearchParams({ month });
+    if (statusFilter) params.set("status", statusFilter);
+    const data = await fetch(`/api/patients?${params}`).then((r) => r.json());
+    setPatients(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setShowHelperDrop(false)
+      if (dropRef.current && !dropRef.current.contains(e.target as Node))
+        setShowHelperDrop(false);
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   function openAdd() {
-    setEditPatient(null); setForm({ ...EMPTY_FORM, incentiveAmount: String(defaultAmount) })
-    setHelperSearch(''); setError(''); setShowForm(true)
+    setEditPatient(null);
+    setForm({ ...EMPTY_FORM, incentiveAmount: String(defaultAmount) });
+    setHelperSearch("");
+    setError("");
+    setShowForm(true);
   }
   function openEdit(p: Patient) {
-    setEditPatient(p)
-    setForm({ name: p.name, mobile: p.mobile, ipdNo: p.ipdNo, doa: p.doa?.slice(0, 10) || '', helperId: p.helperId?._id || '', incentiveAmount: String(p.incentiveAmount) })
-    setHelperSearch(p.helperId?.name || ''); setError(''); setShowForm(true)
+    setEditPatient(p);
+    setForm({
+      name: p.name,
+      mobile: p.mobile,
+      ipdNo: p.ipdNo,
+      doa: p.doa?.slice(0, 10) || "",
+      helperId: p.helperId?._id || "",
+      incentiveAmount: String(p.incentiveAmount),
+    });
+    setHelperSearch(p.helperId?.name || "");
+    setError("");
+    setShowForm(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true); setError('')
+    e.preventDefault();
+    setLoading(true);
+    setError("");
     try {
-      const body = { ...form, incentiveAmount: Number(form.incentiveAmount) }
-      const url = editPatient ? `/api/patients?id=${editPatient._id}` : '/api/patients'
-      const method = editPatient ? 'PUT' : 'POST'
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return }
-      setShowForm(false); load()
-    } catch { setError('Something went wrong') }
-    finally { setLoading(false) }
+      const body = { ...form, incentiveAmount: Number(form.incentiveAmount) };
+      const url = editPatient
+        ? `/api/patients?id=${editPatient._id}`
+        : "/api/patients";
+      const method = editPatient ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error || "Failed");
+        return;
+      }
+      setShowForm(false);
+      load();
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this patient?')) return
-    await fetch(`/api/patients?id=${id}`, { method: 'DELETE' })
-    load()
+    if (!confirm("Delete this patient?")) return;
+    await fetch(`/api/patients?id=${id}`, { method: "DELETE" });
+    load();
   }
 
-  const selectedHelper = helpers.find(h => h._id === form.helperId)
-  const filteredHelpers = helpers.filter(h =>
-    !helperSearch ||
-    h.name.toLowerCase().includes(helperSearch.toLowerCase()) ||
-    h.block.toLowerCase().includes(helperSearch.toLowerCase()) ||
-    h.gramPanchayat.toLowerCase().includes(helperSearch.toLowerCase())
-  )
+  const selectedHelper = helpers.find((h) => h._id === form.helperId);
+  const filteredHelpers = helpers.filter(
+    (h) =>
+      !helperSearch ||
+      h.name.toLowerCase().includes(helperSearch.toLowerCase()) ||
+      h.block.toLowerCase().includes(helperSearch.toLowerCase()) ||
+      h.gramPanchayat.toLowerCase().includes(helperSearch.toLowerCase()),
+  );
 
-  const displayPatients = filterHelper ? patients.filter(p => p.helperId?._id === filterHelper) : patients
+  const displayPatients = filterHelper
+    ? patients.filter((p) => p.helperId?._id === filterHelper)
+    : patients;
 
   return (
     <>
@@ -258,12 +333,12 @@ export default function AdminPatientsPage() {
                       <div style={{ fontWeight: 500, fontSize: 13 }}>
                         {p.helperId?.name}
                       </div>
-                      <span
+                      {/* <span
                         className="badge badge-green"
                         style={{ fontSize: 10 }}
                       >
                         {p.helperId?.tag}
-                      </span>
+                      </span> */}
                     </td>
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       {p.helperId?.block} / {p.helperId?.gramPanchayat}

@@ -262,7 +262,14 @@ export default function ViewPage() {
             <button
               className="btn btn-secondary"
               onClick={activeTab === "helper" ? exportHelpers : exportPatients}
-              style={{ display: "flex", alignItems: "center", gap: 6 }}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 6,
+                width: "100%",
+                alignItems: "center",
+                textAlign: "center",
+              }}
             >
               <span>📥</span>
               Export Excel

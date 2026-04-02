@@ -39,7 +39,7 @@ export default function LoginPage() {
       style={{
         minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
+        alignItems: "start",
         justifyContent: "center",
         background: "linear-gradient(135deg, #0f4f30 0%, #1a7a4a 100%)",
         padding: "20px",
@@ -59,6 +59,7 @@ export default function LoginPage() {
               justifyContent: "center",
               margin: "0 auto 14px",
               fontSize: 26,
+              marginTop: "80px",
             }}
           >
             <Image src={"/logo.png"} width={80} height={80} alt="Logo" />
