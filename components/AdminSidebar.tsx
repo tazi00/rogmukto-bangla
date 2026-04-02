@@ -188,7 +188,7 @@ export default function AdminSidebar() {
         <div style={sidebarInnerStyle}>
           <div style={logoStyle}>
             <div style={logoImgStyle}>
-              <Image src="/logo.png" width={48} height={48} alt="Logo" />
+              <Image src="/logo.png" width={80} height={80} alt="Logo" />
             </div>
             <h1 style={titleStyle}>Rogmukto Bangla</h1>
             <p style={subtitleStyle}>Admin Panel</p>
