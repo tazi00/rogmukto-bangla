@@ -24,14 +24,23 @@ export default function AdminDashboard() {
     <>
       <div className="page-header">
         <h2>Dashboard</h2>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{month}</span>
+        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          {month}
+        </span>
       </div>
       <div className="page-body">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 16,
+            marginBottom: 28,
+          }}
+        >
           <div className="stat-card">
             <div className="stat-label">Swasthya Bondhu</div>
             <div className="stat-value">{stats.helpers}</div>
-            <div className="stat-sub">Registered helpers</div>
+            <div className="stat-sub">Registered Swasthya Bondhu</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Total Patients</div>
@@ -40,27 +49,49 @@ export default function AdminDashboard() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Pending Payment</div>
-            <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.pending}</div>
+            <div className="stat-value" style={{ color: "var(--accent)" }}>
+              {stats.pending}
+            </div>
             <div className="stat-sub">Awaiting clearance</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Cleared</div>
-            <div className="stat-value" style={{ color: 'var(--green)' }}>{stats.cleared}</div>
+            <div className="stat-value" style={{ color: "var(--green)" }}>
+              {stats.cleared}
+            </div>
             <div className="stat-sub">Payments done</div>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '20px 24px' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Quick Actions</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Common tasks you can do from here</p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href="/admin/helpers" className="btn btn-secondary">+ Add Swasthya Bondhu</a>
-            <a href="/admin/receptionists" className="btn btn-secondary">+ Add Receptionist</a>
-            <a href="/admin/patients" className="btn btn-secondary">View All Patients</a>
-            <a href="/view" target="_blank" className="btn btn-secondary">↗ Open View Panel</a>
+        <div className="card" style={{ padding: "20px 24px" }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+            Quick Actions
+          </h3>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-muted)",
+              marginBottom: 16,
+            }}
+          >
+            Common tasks you can do from here
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <a href="/admin/helpers" className="btn btn-secondary">
+              + Add Swasthya Bondhu
+            </a>
+            <a href="/admin/receptionists" className="btn btn-secondary">
+              + Add Receptionist
+            </a>
+            <a href="/admin/patients" className="btn btn-secondary">
+              View All Patients
+            </a>
+            <a href="/view" target="_blank" className="btn btn-secondary">
+              ↗ Open View Panel
+            </a>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 import ViewHeader from "@/components/ViewHeader";
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 
 interface GP {
   _id: string;
@@ -73,14 +73,11 @@ export default function ViewPage() {
   const [selMonth, setSelMonth] = useState(
     String(now.getMonth() + 1).padStart(2, "0"),
   );
-
-  // Cascade location
   const [locations, setLocations] = useState<SubDiv[]>([]);
   const [selSDId, setSelSDId] = useState("");
   const [selBlockId, setSelBlockId] = useState("");
   const [selGPId, setSelGPId] = useState("");
   const [selHelperId, setSelHelperId] = useState("");
-
   const [helpers, setHelpers] = useState<any[]>([]);
   const [helperReport, setHelperReport] = useState<ReportRow[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -97,7 +94,6 @@ export default function ViewPage() {
 
   const selectedSD = locations.find((sd) => sd._id === selSDId);
   const selectedBlock = selectedSD?.blocks.find((b) => b._id === selBlockId);
-
   const sdName = selectedSD?.name || "";
   const blockName = selectedBlock?.name || "";
   const gpName =
@@ -145,7 +141,6 @@ export default function ViewPage() {
     setSelHelperId("");
   }
 
-  // Helpers filtered by selected location
   const filteredHelpers = helpers.filter((h) => {
     if (sdName && h.subDivision !== sdName) return false;
     if (blockName && h.block !== blockName) return false;
@@ -168,12 +163,69 @@ export default function ViewPage() {
           .filter((p) => p.paymentStatus === "pending")
           .reduce((s, p) => s + p.incentiveAmount, 0);
 
+  // ── EXPORT FUNCTIONS ──
+  function exportHelpers() {
+    const monthLabel =
+      MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
+    const rows = helperReport.map((row) => ({
+      Name: row.helper.name,
+      Phone: row.helper.phone,
+      "Sub Division": row.helper.subDivision,
+      Block: row.helper.block,
+      "Gram Panchayat": row.helper.gramPanchayat,
+      Tag: row.helper.tag,
+      "Total Patients": row.totalPatients,
+      "Total Incentive (₹)": row.totalIncentive,
+      "Pending (₹)": row.pendingIncentive,
+      "Cleared (₹)": row.clearedIncentive,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [20, 14, 16, 14, 18, 16, 14, 18, 14, 14].map((w) => ({
+      wch: w,
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Swasthya Bondhu");
+    XLSX.writeFile(wb, `SwasthyaBondhu_${monthLabel}_${selYear}.xlsx`);
+  }
+
+  function exportPatients() {
+    const monthLabel =
+      MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
+    const rows = patients.map((p) => ({
+      "Patient Name": p.name,
+      Mobile: p.mobile,
+      "IPD No.": p.ipdNo,
+      "Date of Admission": new Date(p.doa).toLocaleDateString("en-IN"),
+      "Helper Name": p.helperId?.name || "",
+      "Sub Division": p.helperId?.subDivision || "",
+      Block: p.helperId?.block || "",
+      "Gram Panchayat": p.helperId?.gramPanchayat || "",
+      Tag: p.helperId?.tag || "",
+      "Incentive (₹)": p.incentiveAmount,
+      "Payment Status":
+        p.paymentStatus === "clearance" ? "Clearance" : "Pending",
+      "Payment Mode":
+        p.paymentDetail?.mode === "cash"
+          ? "Cash"
+          : p.paymentDetail?.mode === "online"
+            ? "Online"
+            : "",
+      Remarks: p.paymentDetail?.remarks || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [18, 14, 14, 16, 16, 14, 14, 16, 14, 14, 14, 12, 24].map(
+      (w) => ({ wch: w }),
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Patients");
+    XLSX.writeFile(wb, `Patients_${monthLabel}_${selYear}.xlsx`);
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
       <ViewHeader />
-
       <div style={{ padding: "24px 28px" }}>
-        {/* Toggle + Stats */}
+        {/* Toggle + Stats + Export */}
         <div
           style={{
             display: "flex",
@@ -184,18 +236,36 @@ export default function ViewPage() {
             gap: 12,
           }}
         >
-          <div className="toggle-group">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div className="toggle-group">
+              <button
+                className={`toggle-btn ${activeTab === "helper" ? "active" : ""}`}
+                onClick={() => setActiveTab("helper")}
+              >
+                Swasthya View
+              </button>
+              <button
+                className={`toggle-btn ${activeTab === "patient" ? "active" : ""}`}
+                onClick={() => setActiveTab("patient")}
+              >
+                Patient View
+              </button>
+            </div>
+            {/* Export button */}
             <button
-              className={`toggle-btn ${activeTab === "helper" ? "active" : ""}`}
-              onClick={() => setActiveTab("helper")}
+              className="btn btn-secondary"
+              onClick={activeTab === "helper" ? exportHelpers : exportPatients}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              Swasthya View
-            </button>
-            <button
-              className={`toggle-btn ${activeTab === "patient" ? "active" : ""}`}
-              onClick={() => setActiveTab("patient")}
-            >
-              Patient View
+              <span>📥</span>
+              Export Excel
             </button>
           </div>
           <div style={{ display: "flex", gap: 20 }}>
@@ -216,12 +286,12 @@ export default function ViewPage() {
                 color: "var(--accent)",
               },
             ].map((s) => (
-              <div key={s.label} style={{ textAlign: "right" }}>
+              <div key={s.label} style={{ textAlign: "right" as const }}>
                 <div
                   style={{
                     fontSize: 11,
                     color: "var(--text-muted)",
-                    textTransform: "uppercase",
+                    textTransform: "uppercase" as const,
                     letterSpacing: "0.04em",
                   }}
                 >
@@ -248,7 +318,6 @@ export default function ViewPage() {
               alignItems: "flex-end",
             }}
           >
-            {/* Year */}
             <div className="form-group" style={{ minWidth: 100 }}>
               <label className="form-label">Year</label>
               <select
@@ -263,7 +332,6 @@ export default function ViewPage() {
                 ))}
               </select>
             </div>
-            {/* Month */}
             <div className="form-group" style={{ minWidth: 140 }}>
               <label className="form-label">Month</label>
               <select
@@ -278,7 +346,6 @@ export default function ViewPage() {
                 ))}
               </select>
             </div>
-            {/* Sub Division */}
             <div className="form-group" style={{ minWidth: 160 }}>
               <label className="form-label">Sub Division</label>
               <select
@@ -299,7 +366,6 @@ export default function ViewPage() {
                 ))}
               </select>
             </div>
-            {/* Block */}
             <div className="form-group" style={{ minWidth: 150 }}>
               <label className="form-label">Block</label>
               <select
@@ -320,7 +386,6 @@ export default function ViewPage() {
                 ))}
               </select>
             </div>
-            {/* GP */}
             <div className="form-group" style={{ minWidth: 150 }}>
               <label className="form-label">Gram Panchayat</label>
               <select
@@ -340,7 +405,6 @@ export default function ViewPage() {
                 ))}
               </select>
             </div>
-            {/* Helper */}
             <div className="form-group" style={{ minWidth: 180 }}>
               <label className="form-label">Swasthya Bondhu</label>
               <select
@@ -348,10 +412,10 @@ export default function ViewPage() {
                 value={selHelperId}
                 onChange={(e) => setSelHelperId(e.target.value)}
               >
-                <option value="">All Swashya Bondhu</option>
+                <option value="">All Swasthya Bondhu</option>
                 {filteredHelpers.map((h) => (
                   <option key={h._id} value={h._id}>
-                    {h.name} — {h.block}
+                    {h.name} — {h.subDivision}
                   </option>
                 ))}
               </select>
@@ -456,7 +520,7 @@ export default function ViewPage() {
                   <th>Referred By</th>
                   <th>Block / GP</th>
                   <th>Incentive</th>
-                  <th>Status</th>
+                  <th>Payment Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -485,12 +549,7 @@ export default function ViewPage() {
                         <div style={{ fontWeight: 500, fontSize: 13 }}>
                           {p.helperId?.name}
                         </div>
-                        <span
-                          className="badge badge-green"
-                          style={{ fontSize: 10 }}
-                        >
-                          {p.helperId?.tag}
-                        </span>
+                        {/* <span className="badge badge-green" style={{ fontSize: 10 }}>{p.helperId?.tag}</span> */}
                       </td>
                       <td style={{ fontSize: 12, color: "var(--text-muted)" }}>
                         {p.helperId?.block} / {p.helperId?.gramPanchayat}

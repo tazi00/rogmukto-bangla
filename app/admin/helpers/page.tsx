@@ -130,7 +130,7 @@ export default function HelpersPage() {
                 <tr>
                   <td colSpan={8}>
                     <div className="empty-state">
-                      <p>No helpers found.</p>
+                      <p>No Swasthya Bondhu found.</p>
                     </div>
                   </td>
                 </tr>
@@ -283,7 +283,7 @@ export default function HelpersPage() {
                   className="btn btn-primary"
                   disabled={loading || !location.gramPanchayatId}
                 >
-                  {loading ? "Saving..." : "Save Helper"}
+                  {loading ? "Saving..." : "Save Swasthya Bondhu"}
                 </button>
               </div>
             </form>

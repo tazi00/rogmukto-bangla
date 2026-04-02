@@ -258,7 +258,7 @@ export default function ReceptionPage() {
                 value={filterHelper}
                 onChange={(e) => setFilterHelper(e.target.value)}
               >
-                <option value="">All helpers</option>
+                <option value="">All Swasthya Bondhu</option>
                 {helpers.map((h) => (
                   <option key={h._id} value={h._id}>
                     {h.name} — {h.block}
@@ -317,7 +317,7 @@ export default function ReceptionPage() {
               ✓ Cleared:{" "}
               <strong>
                 {
-                  displayPatients.filter((p) => p.paymentStatus === "clearance")
+                  displayPatients.filter((p) => p.paymentStatus === "cleared")
                     .length
                 }
               </strong>
@@ -335,7 +335,7 @@ export default function ReceptionPage() {
                 <th>DOA</th>
                 <th>Helper</th>
                 <th>₹</th>
-                <th>Status</th>
+                <th>Payment Status</th>
                 <th>Mode</th>
                 <th>Actions</th>
               </tr>
