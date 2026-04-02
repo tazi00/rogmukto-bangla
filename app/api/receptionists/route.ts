@@ -21,9 +21,26 @@ export async function POST(req: NextRequest) {
   }
   await connectDB()
   const { name, username, password } = await req.json()
+  const exists = await Receptionist.findOne({ username })
+  if (exists) return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
   const hashed = await bcrypt.hash(password, 10)
   const rec = await Receptionist.create({ name, username, password: hashed })
   return NextResponse.json({ _id: rec._id, name: rec.name, username: rec.username }, { status: 201 })
+}
+
+export async function PUT(req: NextRequest) {
+  const auth = await verifyAuth()
+  if (!auth || auth.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  await connectDB()
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  const { name, username, password } = await req.json()
+  const update: any = { name, username }
+  if (password) update.password = await bcrypt.hash(password, 10)
+  const updated = await Receptionist.findByIdAndUpdate(id, update, { new: true }).select('-password')
+  return NextResponse.json(updated)
 }
 
 export async function DELETE(req: NextRequest) {

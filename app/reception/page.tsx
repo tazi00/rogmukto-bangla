@@ -1,27 +1,45 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import PaymentModal from '@/components/PaymentModal'
 
-interface Helper {
-  _id: string; name: string; subDivision: string; block: string; gramPanchayat: string; tag: string; phone: string
-}
+interface Helper { _id: string; name: string; subDivision: string; block: string; gramPanchayat: string; tag: string }
 interface Patient {
-  _id: string; name: string; mobile: string; ipdNo: string; doa: string; incentiveAmount: number
-  paymentStatus: string; helperId: { name: string; block: string; gramPanchayat: string }
+  _id: string; name: string; mobile: string; ipdNo: string; doa: string
+  incentiveAmount: number; paymentStatus: string; paymentDetail?: any
+  helperId: { _id: string; name: string; block: string; gramPanchayat: string }
 }
 
 const EMPTY_FORM = { name: '', mobile: '', ipdNo: '', doa: '', helperId: '', incentiveAmount: '' }
 
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+const MONTHS = [
+  { val: '01', label: 'January' }, { val: '02', label: 'February' }, { val: '03', label: 'March' },
+  { val: '04', label: 'April' }, { val: '05', label: 'May' }, { val: '06', label: 'June' },
+  { val: '07', label: 'July' }, { val: '08', label: 'August' }, { val: '09', label: 'September' },
+  { val: '10', label: 'October' }, { val: '11', label: 'November' }, { val: '12', label: 'December' },
+]
+
 export default function ReceptionPage() {
   const router = useRouter()
+  const now = new Date()
+  const [selYear, setSelYear] = useState(String(now.getFullYear()))
+  const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'))
+  const [filterHelper, setFilterHelper] = useState('')
+
   const [helpers, setHelpers] = useState<Helper[]>([])
-  const [recentPatients, setRecentPatients] = useState<Patient[]>([])
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [patients, setPatients] = useState<Patient[]>([])
   const [defaultAmount, setDefaultAmount] = useState(200)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [helperSearch, setHelperSearch] = useState('')
+  const [showHelperDrop, setShowHelperDrop] = useState(false)
+  const [editPatient, setEditPatient] = useState<Patient | null>(null)
+  const [paymentPatient, setPaymentPatient] = useState<Patient | null>(null)
+  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
-  const [helperSearch, setHelperSearch] = useState('')
+  const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/helpers').then(r => r.json()).then(setHelpers)
@@ -29,176 +47,280 @@ export default function ReceptionPage() {
       setDefaultAmount(d.defaultIncentiveAmount || 200)
       setForm(f => ({ ...f, incentiveAmount: String(d.defaultIncentiveAmount || 200) }))
     })
-    loadRecent()
   }, [])
 
-  async function loadRecent() {
-    const today = new Date().toISOString().slice(0, 7)
-    const data = await fetch(`/api/patients?month=${today}`).then(r => r.json())
-    setRecentPatients(Array.isArray(data) ? data.slice(0, 10) : [])
+  useEffect(() => { loadPatients() }, [selYear, selMonth])
+
+  async function loadPatients() {
+    const month = `${selYear}-${selMonth}`
+    const data = await fetch(`/api/patients?month=${month}`).then(r => r.json())
+    setPatients(Array.isArray(data) ? data : [])
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setShowHelperDrop(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function openAdd() {
+    setEditPatient(null)
+    setForm({ ...EMPTY_FORM, incentiveAmount: String(defaultAmount) })
+    setHelperSearch(''); setError(''); setShowForm(true)
+  }
+
+  function openEdit(p: Patient) {
+    setEditPatient(p)
+    setForm({ name: p.name, mobile: p.mobile, ipdNo: p.ipdNo, doa: p.doa?.slice(0, 10) || '', helperId: p.helperId?._id || '', incentiveAmount: String(p.incentiveAmount) })
+    setHelperSearch(p.helperId?.name || ''); setError(''); setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true); setError(''); setSuccess('')
+    e.preventDefault(); setLoading(true); setError(''); setSuccess('')
     try {
-      const res = await fetch('/api/patients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, incentiveAmount: Number(form.incentiveAmount) }),
-      })
+      const body = { ...form, incentiveAmount: Number(form.incentiveAmount) }
+      const url = editPatient ? `/api/patients?id=${editPatient._id}` : '/api/patients'
+      const method = editPatient ? 'PUT' : 'POST'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return }
-      setSuccess('Patient added successfully!')
-      setForm({ ...EMPTY_FORM, helperId: form.helperId, incentiveAmount: String(defaultAmount) })
-      loadRecent()
-      setTimeout(() => setSuccess(''), 3000)
+      setSuccess(editPatient ? 'Patient updated!' : 'Patient added!')
+      setShowForm(false); loadPatients()
+      setTimeout(() => setSuccess(''), 2500)
     } catch { setError('Something went wrong') }
     finally { setLoading(false) }
   }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this patient record?')) return
+    await fetch(`/api/patients?id=${id}`, { method: 'DELETE' })
+    loadPatients()
   }
 
+  const selectedHelper = helpers.find(h => h._id === form.helperId)
   const filteredHelpers = helpers.filter(h =>
+    !helperSearch ||
     h.name.toLowerCase().includes(helperSearch.toLowerCase()) ||
     h.block.toLowerCase().includes(helperSearch.toLowerCase()) ||
     h.gramPanchayat.toLowerCase().includes(helperSearch.toLowerCase())
   )
 
-  const selectedHelper = helpers.find(h => h._id === form.helperId)
+  // Apply filter
+  const displayPatients = filterHelper
+    ? patients.filter(p => p.helperId?._id === filterHelper || (p.helperId as any) === filterHelper)
+    : patients
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page-bg)' }}>
       {/* Header */}
-      <div style={{ background: 'var(--green-dark)', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: 'var(--green-dark)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>Rogmukto Bangla</h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Reception Panel</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <a href="/view" target="_blank" className="btn btn-secondary btn-sm">↗ View Panel</a>
-          <button className="btn btn-secondary btn-sm" onClick={handleLogout}>Logout</button>
+          <button className="btn btn-secondary btn-sm" onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login') }}>Logout</button>
         </div>
       </div>
 
-      <div style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 24, alignItems: 'start' }}>
+      <div style={{ padding: '20px' }}>
+        {success && <div className="alert alert-success" style={{ marginBottom: 14 }}>{success}</div>}
 
-          {/* Add Patient Form */}
-          <div className="card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Add New Patient</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Fill in patient details below</p>
+        {/* Filter bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="form-group">
+              <label className="form-label">Year</label>
+              <select className="form-select" style={{ width: 100 }} value={selYear} onChange={e => setSelYear(e.target.value)}>
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Month</label>
+              <select className="form-select" style={{ width: 140 }} value={selMonth} onChange={e => setSelMonth(e.target.value)}>
+                {MONTHS.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Swasthya Bondhu</label>
+              <select className="form-select" style={{ width: 190 }} value={filterHelper} onChange={e => setFilterHelper(e.target.value)}>
+                <option value="">All helpers</option>
+                {helpers.map(h => (
+                  <option key={h._id} value={h._id}>{h.name} — {h.block}</option>
+                ))}
+              </select>
+            </div>
+            {filterHelper && (
+              <button className="btn btn-secondary btn-sm" style={{ marginBottom: 1 }} onClick={() => setFilterHelper('')}>✕ Clear</button>
+            )}
+          </div>
+          <button className="btn btn-primary" onClick={openAdd}>+ Add Patient</button>
+        </div>
 
-            {error && <div className="alert alert-error" style={{ marginBottom: 14 }}>{error}</div>}
-            {success && <div className="alert alert-success" style={{ marginBottom: 14 }}>{success}</div>}
+        {/* Summary row when helper filtered */}
+        {filterHelper && (
+          <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--green-light)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--green-dark)', display: 'flex', gap: 20 }}>
+            <span>👤 <strong>{helpers.find(h => h._id === filterHelper)?.name}</strong></span>
+            <span>📋 Patients: <strong>{displayPatients.length}</strong></span>
+            <span>💰 Total: <strong>₹{displayPatients.reduce((s, p) => s + p.incentiveAmount, 0).toLocaleString()}</strong></span>
+            <span>✓ Cleared: <strong>{displayPatients.filter(p => p.paymentStatus === 'clearance').length}</strong></span>
+          </div>
+        )}
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Helper search */}
-              <div className="form-group">
-                <label className="form-label">Swasthya Bondhu *</label>
-                <input
-                  className="form-input"
-                  placeholder="Search by name, block, GP..."
-                  value={helperSearch}
-                  onChange={e => { setHelperSearch(e.target.value); setForm({...form, helperId: ''}) }}
-                />
-                {helperSearch && !selectedHelper && (
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', marginTop: 4, maxHeight: 180, overflowY: 'auto', background: 'var(--surface)', boxShadow: 'var(--shadow-md)' }}>
-                    {filteredHelpers.length === 0
-                      ? <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: 13 }}>No helpers found</div>
-                      : filteredHelpers.map(h => (
-                        <div
-                          key={h._id}
-                          style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--gray-100)', fontSize: 13 }}
+        {/* Patients table */}
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>IPD</th>
+                <th>DOA</th>
+                <th>Helper</th>
+                <th>₹</th>
+                <th>Status</th>
+                <th>Mode</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayPatients.length === 0 ? (
+                <tr><td colSpan={8}><div className="empty-state" style={{ padding: '24px' }}><p>No patients found.</p></div></td></tr>
+              ) : displayPatients.map(p => (
+                <tr key={p._id}>
+                  <td>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{p.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.mobile}</div>
+                  </td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{p.ipdNo}</td>
+                  <td style={{ fontSize: 12 }}>{new Date(p.doa).toLocaleDateString('en-IN')}</td>
+                  <td style={{ fontSize: 12 }}>{p.helperId?.name}</td>
+                  <td style={{ fontWeight: 600 }}>₹{p.incentiveAmount}</td>
+                  <td>
+                    <span className={`badge ${p.paymentStatus === 'clearance' ? 'badge-green' : 'badge-amber'}`}>
+                      {p.paymentStatus === 'clearance' ? '✓ Clearance' : '⏳ Pending'}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: 12 }}>
+                    {p.paymentDetail?.mode === 'cash' ? '💵 Cash' : p.paymentDetail?.mode === 'online' ? '🏦 Online' : '—'}
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setPaymentPatient(p)}>₹</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => openEdit(p)}>Edit</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p._id)}>Del</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showForm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="modal" style={{ maxWidth: 500 }}>
+            <div className="modal-header">
+              <h3>{editPatient ? 'Edit Patient' : 'Add Patient'}</h3>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                {error && <div className="alert alert-error">{error}</div>}
+
+                {/* Helper search dropdown */}
+                <div className="form-group" ref={dropRef} style={{ position: 'relative' }}>
+                  <label className="form-label">Swasthya Bondhu *</label>
+                  <input
+                    className="form-input"
+                    placeholder="🔍 Type name, block, or gram panchayat to search..."
+                    value={helperSearch}
+                    autoComplete="off"
+                    onFocus={() => setShowHelperDrop(true)}
+                    onChange={e => { setHelperSearch(e.target.value); setForm({...form, helperId: ''}); setShowHelperDrop(true) }}
+                  />
+                  {/* Hint */}
+                  {!form.helperId && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                      💡 Showing <strong>Swasthya Bondhu</strong> — search by name, block, or GP
+                    </div>
+                  )}
+                  {/* Dropdown */}
+                  {showHelperDrop && !form.helperId && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                      border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--surface)', boxShadow: 'var(--shadow-md)',
+                      maxHeight: 220, overflowY: 'auto',
+                    }}>
+                      {filteredHelpers.length === 0 ? (
+                        <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: 13 }}>No helpers found</div>
+                      ) : filteredHelpers.map(h => (
+                        <div key={h._id}
+                          style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--gray-100)' }}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--gray-50)')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}
-                          onClick={() => { setForm({...form, helperId: h._id}); setHelperSearch(h.name) }}
-                        >
-                          <div style={{ fontWeight: 500 }}>{h.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{h.subDivision} · {h.block} · {h.gramPanchayat} · <span style={{ color: 'var(--green)' }}>{h.tag}</span></div>
+                          onClick={() => { setForm({...form, helperId: h._id}); setHelperSearch(h.name); setShowHelperDrop(false) }}>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{h.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            <span className="badge badge-green" style={{ fontSize: 10, marginRight: 6 }}>{h.tag}</span>
+                            {h.subDivision} · {h.block} · {h.gramPanchayat}
+                          </div>
                         </div>
-                      ))
-                    }
+                      ))}
+                    </div>
+                  )}
+                  {/* Selected confirmation */}
+                  {selectedHelper && (
+                    <div style={{ marginTop: 6, padding: '7px 10px', background: 'var(--green-light)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--green-dark)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>✓ <strong>{selectedHelper.name}</strong> · {selectedHelper.block} / {selectedHelper.gramPanchayat}</span>
+                      <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--green-dark)' }}
+                        onClick={() => { setForm({...form, helperId: ''}); setHelperSearch(''); setShowHelperDrop(true) }}>✕</button>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Patient Name *</label>
+                    <input className="form-input" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Full name" />
                   </div>
-                )}
-                {selectedHelper && (
-                  <div style={{ marginTop: 6, padding: '8px 12px', background: 'var(--green-light)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--green-dark)' }}>
-                    ✓ {selectedHelper.name} · {selectedHelper.block} / {selectedHelper.gramPanchayat}
+                  <div className="form-group">
+                    <label className="form-label">Mobile *</label>
+                    <input className="form-input" required value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} placeholder="10-digit number" />
                   </div>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Patient Name *</label>
-                  <input className="form-input" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Full name" />
+                  <div className="form-group">
+                    <label className="form-label">IPD No. *</label>
+                    <input className="form-input" required value={form.ipdNo} onChange={e => setForm({...form, ipdNo: e.target.value})} placeholder="e.g. IPD-001" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date of Admission *</label>
+                    <input className="form-input" type="date" required value={form.doa} onChange={e => setForm({...form, doa: e.target.value})} />
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Mobile No. *</label>
-                  <input className="form-input" required value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} placeholder="10-digit number" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">IPD No. *</label>
-                  <input className="form-input" required value={form.ipdNo} onChange={e => setForm({...form, ipdNo: e.target.value})} placeholder="e.g. IPD-2024-001" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Date of Admission *</label>
-                  <input className="form-input" type="date" required value={form.doa} onChange={e => setForm({...form, doa: e.target.value})} />
+                  <label className="form-label">Incentive Amount (₹) <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)', fontSize: 11 }}>— default ₹{defaultAmount}, override if needed</span></label>
+                  <input className="form-input" type="number" min="0" required value={form.incentiveAmount} onChange={e => setForm({...form, incentiveAmount: e.target.value})} />
                 </div>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Incentive Amount (₹) <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— default ₹{defaultAmount}, override if needed</span></label>
-                <input className="form-input" type="number" min="0" required value={form.incentiveAmount} onChange={e => setForm({...form, incentiveAmount: e.target.value})} />
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={loading || !form.helperId}>
+                  {loading ? 'Saving...' : editPatient ? 'Update Patient' : 'Add Patient'}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ justifyContent: 'center', padding: '11px' }}
-                disabled={loading || !form.helperId}
-              >
-                {loading ? 'Adding Patient...' : 'Add Patient'}
-              </button>
             </form>
           </div>
-
-          {/* Recent patients */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>Recent Patients This Month</h3>
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>IPD</th>
-                    <th>Helper</th>
-                    <th>DOA</th>
-                    <th>₹</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPatients.length === 0 ? (
-                    <tr><td colSpan={6}><div className="empty-state" style={{ padding: '24px' }}><p>No patients added this month yet.</p></div></td></tr>
-                  ) : recentPatients.map(p => (
-                    <tr key={p._id}>
-                      <td style={{ fontWeight: 500 }}>{p.name}</td>
-                      <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{p.ipdNo}</td>
-                      <td style={{ fontSize: 12 }}>{p.helperId?.name}</td>
-                      <td style={{ fontSize: 12 }}>{new Date(p.doa).toLocaleDateString('en-IN')}</td>
-                      <td>₹{p.incentiveAmount}</td>
-                      <td><span className={`badge ${p.paymentStatus === 'cleared' ? 'badge-green' : 'badge-amber'}`}>{p.paymentStatus}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
-      </div>
+      )}
+
+      {paymentPatient && (
+        <PaymentModal patient={paymentPatient} onClose={() => setPaymentPatient(null)} onSave={loadPatients} />
+      )}
     </div>
   )
 }

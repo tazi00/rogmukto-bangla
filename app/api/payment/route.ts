@@ -5,14 +5,15 @@ import { verifyAuth } from '@/lib/auth'
 
 export async function PATCH(req: NextRequest) {
   const auth = await verifyAuth()
-  if (!auth || auth.role !== 'admin') {
+  if (!auth || (auth.role !== 'admin' && auth.role !== 'receptionist')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   await connectDB()
-  const { patientIds, status } = await req.json()
-  await Patient.updateMany(
-    { _id: { $in: patientIds } },
-    { paymentStatus: status }
-  )
-  return NextResponse.json({ success: true })
+  const { patientId, status, paymentDetail } = await req.json()
+  const updated = await Patient.findByIdAndUpdate(
+    patientId,
+    { paymentStatus: status, paymentDetail },
+    { new: true }
+  ).populate('helperId', 'name block gramPanchayat subDivision tag')
+  return NextResponse.json(updated)
 }
