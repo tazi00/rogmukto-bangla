@@ -63,7 +63,7 @@ export default function SettingsPage() {
   function startAdding(state: AddingState) { setAdding(state); setInputVal(''); setLocError('') }
 
   const rowStyle = (color: string) => ({ display: 'flex', alignItems: 'center', padding: '8px 12px', background: color, gap: 8 })
-  const expandBtn = (expanded: boolean) => ({ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: 0, width: 16 })
+  const expandBtn = (expanded: boolean) => ({ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--green-dark)', padding: '0 4px', width: 28, fontWeight: 600 })
   const addBtn = (label: string, onClick: () => void) => (
     <button className="btn btn-secondary btn-sm" onClick={onClick}>{label}</button>
   )

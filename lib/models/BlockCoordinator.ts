@@ -7,6 +7,8 @@ export interface IBlockCoordinator extends Document {
   subDivision: string
   blocks: string[]
   address: string
+  username: string
+  password: string
   createdAt: Date
 }
 
@@ -17,6 +19,8 @@ const BlockCoordinatorSchema = new Schema<IBlockCoordinator>({
   subDivision: { type: String, required: true },
   blocks: [{ type: String }],
   address: { type: String, default: '' },
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
 })
 

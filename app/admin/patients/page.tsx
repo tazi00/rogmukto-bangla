@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import PaymentModal from '@/components/PaymentModal'
 import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from '@/components/PatientAddressSelect'
+import PatientExtraFields from '@/components/PatientExtraFields'
 
 interface Helper {
   _id: string; name: string; phone: string; subDivision: string; block: string
@@ -22,7 +23,7 @@ const MONTHS = [
   { val: '07', label: 'July' }, { val: '08', label: 'August' }, { val: '09', label: 'September' },
   { val: '10', label: 'October' }, { val: '11', label: 'November' }, { val: '12', label: 'December' },
 ]
-const EMPTY_FORM = { name: '', mobile: '', ipdNo: '', doa: '', helperId: '', incentiveAmount: '' }
+const EMPTY_FORM = { name: "", mobile: "", ipdNo: "", doa: "", helperId: "", incentiveAmount: "", pincode: "", aadharNumber: "", swasthaSathNumber: "" }
 
 export default function AdminPatientsPage() {
   const now = new Date()
@@ -84,7 +85,8 @@ export default function AdminPatientsPage() {
     const h = helpers.find(h => h._id === (p.helperId as any)?._id)
     setSelectedHelper(h || null); setHelperSearch(h?.name || (p.helperId as any)?.name || '')
     setForm({ name: p.name, mobile: p.mobile, ipdNo: p.ipdNo, doa: p.doa?.slice(0, 10) || '',
-      helperId: (p.helperId as any)?._id || '', incentiveAmount: String(p.incentiveAmount) })
+      helperId: (p.helperId as any)?._id || '', incentiveAmount: String(p.incentiveAmount),
+      pincode: (p as any).pincode || '', aadharNumber: (p as any).aadharNumber || '', swasthaSathNumber: (p as any).swasthaSathNumber || '' })
     setAddress(p.address || EMPTY_ADDRESS)
     setError(''); setShowForm(true)
   }
@@ -140,7 +142,7 @@ export default function AdminPatientsPage() {
           <div className="form-group">
             <label className="form-label">Swasthya Bondhu</label>
             <select className="form-select" style={{ width: 190 }} value={filterHelper} onChange={e => setFilterHelper(e.target.value)}>
-              <option value="">All helpers</option>
+              <option value="">All Swasthya Bondhu</option>
               {helpers.map(h => <option key={h._id} value={h._id}>{h.name} — {h.block}</option>)}
             </select>
           </div>
@@ -159,7 +161,7 @@ export default function AdminPatientsPage() {
             <thead>
               <tr>
                 <th>Patient</th><th>Mobile</th><th>IPD No.</th><th>DOA</th>
-                <th>Helper</th><th>Address</th><th>Incentive</th><th>Status</th><th>Actions</th>
+                <th>Swasthya Bondhu</th><th>Address</th><th>Incentive</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -224,7 +226,7 @@ export default function AdminPatientsPage() {
                   {showHelperDrop && !selectedHelper && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', boxShadow: 'var(--shadow-md)', maxHeight: 220, overflowY: 'auto' }}>
                       {filteredHelpers.length === 0
-                        ? <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: 13 }}>No helpers found</div>
+                        ? <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: 13 }}>No Swasthya Bondhu found</div>
                         : filteredHelpers.map(h => (
                           <div key={h._id} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--gray-100)' }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--gray-50)'}
@@ -273,7 +275,14 @@ export default function AdminPatientsPage() {
                   <input className="form-input" type="number" min="0" required value={form.incentiveAmount} onChange={e => setForm({...form, incentiveAmount: e.target.value})} />
                 </div>
 
-                <PatientAddressSelect value={address} onChange={setAddress} />
+                <PatientExtraFields
+                pincode={form.pincode || ""}
+                aadharNumber={form.aadharNumber || ""}
+                swasthaSathNumber={form.swasthaSathNumber || ""}
+                onChange={(field, value) => setForm(f => ({...f, [field]: value}))}
+              />
+
+              <PatientAddressSelect value={address} onChange={setAddress} />
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>

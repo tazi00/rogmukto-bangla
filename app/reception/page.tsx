@@ -5,6 +5,7 @@ import PaymentModal from "@/components/PaymentModal";
 import ReceptionHeader from "@/components/ReceptionistHeader";
 import AddHelperModal from "@/components/AddHelperModal";
 import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from "@/components/PatientAddressSelect";
+import PatientExtraFields from "@/components/PatientExtraFields";
 
 interface Helper {
   _id: string; name: string; phone: string;
@@ -21,7 +22,7 @@ interface Patient {
   address?: any;
 }
 
-const EMPTY_FORM = { name: "", mobile: "", ipdNo: "", doa: "", helperId: "", incentiveAmount: "" };
+const EMPTY_FORM = { name: "", mobile: "", ipdNo: "", doa: "", helperId: "", incentiveAmount: "", pincode: "", aadharNumber: "", swasthaSathNumber: "" };
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const MONTHS = [
   { val: "01", label: "January" }, { val: "02", label: "February" }, { val: "03", label: "March" },
@@ -112,8 +113,11 @@ export default function ReceptionPage() {
     setForm({
       name: p.name, mobile: p.mobile, ipdNo: p.ipdNo,
       doa: p.doa?.slice(0, 10) || "",
-      helperId: (p.helperId as any)?._id || p.helperId as any,
+      helperId: (p.helperId as any)?._id || String(p.helperId),
       incentiveAmount: String(p.incentiveAmount),
+      pincode: (p as any).pincode || "",
+      aadharNumber: (p as any).aadharNumber || "",
+      swasthaSathNumber: (p as any).swasthaSathNumber || "",
     });
     setAddress(p.address || EMPTY_ADDRESS);
     setError(""); setShowForm(true);
@@ -178,7 +182,7 @@ export default function ReceptionPage() {
             <div className="form-group">
               <label className="form-label">Swasthya Bondhu</label>
               <select className="form-select" style={{ width: 190 }} value={filterHelper} onChange={e => setFilterHelper(e.target.value)}>
-                <option value="">All helpers</option>
+                <option value="">All Swasthya Bondhu</option>
                 {uniqueHelpers.map(h => <option key={h._id} value={h._id}>{h.name} — {h.block}</option>)}
               </select>
             </div>
@@ -204,7 +208,7 @@ export default function ReceptionPage() {
           <table>
             <thead>
               <tr>
-                <th>Patient</th><th>IPD</th><th>DOA</th><th>Helper</th>
+                <th>Patient</th><th>IPD</th><th>DOA</th><th>Swasthya Bondhu</th>
                 <th>Address</th><th>₹</th><th>Status</th><th>Mode</th><th>Actions</th>
               </tr>
             </thead>
@@ -290,7 +294,7 @@ export default function ReceptionPage() {
                       background: "var(--surface)", boxShadow: "var(--shadow-md)", maxHeight: 220, overflowY: "auto",
                     }}>
                       {filteredHelpers.length === 0
-                        ? <div style={{ padding: "12px 14px", color: "var(--text-muted)", fontSize: 13 }}>No helpers found</div>
+                        ? <div style={{ padding: "12px 14px", color: "var(--text-muted)", fontSize: 13 }}>No Swasthya Bondhu found</div>
                         : filteredHelpers.map(h => (
                           <div key={h._id}
                             style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid var(--gray-100)" }}

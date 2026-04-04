@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 const JWT_SECRET = process.env.JWT_SECRET!
 
 export interface AuthPayload {
-  role: 'admin' | 'receptionist'
+  role: 'admin' | 'receptionist' | 'block-coordinator'
   id?: string
   username?: string
 }

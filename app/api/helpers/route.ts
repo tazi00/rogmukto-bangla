@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import Helper from '@/lib/models/Helper'
+import BlockCoordinator from '@/lib/models/BlockCoordinator'
 import { verifyAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -21,11 +22,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const auth = await verifyAuth()
-  if (!auth || (auth.role !== 'admin' && auth.role !== 'receptionist')) {
+  if (!auth || !['admin', 'receptionist', 'block-coordinator'].includes(auth.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   await connectDB()
   const body = await req.json()
+
+  // If BC is adding, auto-assign themselves as parent
+  if (auth.role === 'block-coordinator') {
+    const bc = await BlockCoordinator.findById(auth.id)
+    if (!bc) return NextResponse.json({ error: 'BC not found' }, { status: 404 })
+    body.blockCoordinatorId = auth.id
+    body.subDivision = bc.subDivision
+    // block will come from form
+  }
+
   const helper = await Helper.create(body)
   const populated = await helper.populate('blockCoordinatorId', 'name coordinatorId')
   return NextResponse.json(populated, { status: 201 })
@@ -33,7 +44,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const auth = await verifyAuth()
-  if (!auth || (auth.role !== 'admin' && auth.role !== 'receptionist')) {
+  if (!auth || !['admin', 'receptionist', 'block-coordinator'].includes(auth.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   await connectDB()
