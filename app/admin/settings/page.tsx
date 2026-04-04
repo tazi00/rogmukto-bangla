@@ -1,9 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-interface GP { _id: string; name: string }
-interface Block { _id: string; name: string; gramPanchayats: GP[] }
+interface Village { _id: string; name: string }
+interface Ward { _id: string; name: string }
+interface GP { _id: string; name: string; villages: Village[] }
+interface Municipality { _id: string; name: string; wards: Ward[] }
+interface Block { _id: string; name: string; gramPanchayats: GP[]; municipalities: Municipality[] }
 interface SubDiv { _id: string; name: string; blocks: Block[] }
+
+type AddingState = { type: string; subDivisionId?: string; blockId?: string; gpId?: string; munId?: string } | null
 
 export default function SettingsPage() {
   const [amount, setAmount] = useState('')
@@ -12,7 +17,9 @@ export default function SettingsPage() {
   const [locations, setLocations] = useState<SubDiv[]>([])
   const [expandedSD, setExpandedSD] = useState<string | null>(null)
   const [expandedBlock, setExpandedBlock] = useState<string | null>(null)
-  const [adding, setAdding] = useState<{ type: string; subDivisionId?: string; blockId?: string } | null>(null)
+  const [expandedGP, setExpandedGP] = useState<string | null>(null)
+  const [expandedMun, setExpandedMun] = useState<string | null>(null)
+  const [adding, setAdding] = useState<AddingState>(null)
   const [inputVal, setInputVal] = useState('')
   const [locError, setLocError] = useState('')
   const [locLoading, setLocLoading] = useState(false)
@@ -39,7 +46,7 @@ export default function SettingsPage() {
     setLocLoading(true); setLocError('')
     const res = await fetch('/api/locations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: adding!.type, name: inputVal.trim(), subDivisionId: adding!.subDivisionId, blockId: adding!.blockId }),
+      body: JSON.stringify({ type: adding!.type, name: inputVal.trim(), ...adding }),
     })
     const data = await res.json()
     if (!res.ok) { setLocError(data.error || 'Failed'); setLocLoading(false); return }
@@ -47,34 +54,32 @@ export default function SettingsPage() {
     loadLocations()
   }
 
-  async function handleDelete(type: string, subDivisionId: string, blockId?: string, gpId?: string) {
-    const labels: Record<string, string> = { subdivision: 'SubDivision and all its blocks/GPs', block: 'Block and all its GPs', gp: 'Gram Panchayat' }
-    if (!confirm(`Delete this ${labels[type]}?`)) return
-    await fetch('/api/locations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, subDivisionId, blockId, gpId }) })
+  async function handleDelete(payload: any) {
+    if (!confirm('Delete this item and all its children?')) return
+    await fetch('/api/locations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     loadLocations()
   }
 
-  function startAdding(type: string, subDivisionId?: string, blockId?: string) {
-    setAdding({ type, subDivisionId, blockId }); setInputVal(''); setLocError('')
-  }
+  function startAdding(state: AddingState) { setAdding(state); setInputVal(''); setLocError('') }
 
-  const addPlaceholder: Record<string, string> = {
-    subdivision: 'e.g. Basirhat',
-    block: 'e.g. Baduria',
-    gp: 'e.g. Aturia',
-  }
+  const rowStyle = (color: string) => ({ display: 'flex', alignItems: 'center', padding: '8px 12px', background: color, gap: 8 })
+  const expandBtn = (expanded: boolean) => ({ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: 0, width: 16 })
+  const addBtn = (label: string, onClick: () => void) => (
+    <button className="btn btn-secondary btn-sm" onClick={onClick}>{label}</button>
+  )
+  const delBtn = (onClick: () => void) => (
+    <button className="btn btn-danger btn-sm" onClick={onClick}>✕</button>
+  )
 
   return (
     <>
       <div className="page-header"><h2>Settings</h2></div>
       <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* Incentive amount */}
-        <div className="card" style={{ maxWidth: 480, padding: '24px' }}>
+        {/* Incentive Amount */}
+        <div className="card" style={{ maxWidth: 480, padding: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Default Incentive Amount</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-            Default ₹ amount per patient. Receptionist can override per patient.
-          </p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Default ₹ per patient. Receptionist can override.</p>
           {amountSaved && <div className="alert alert-success" style={{ marginBottom: 14 }}>✓ Saved!</div>}
           <form onSubmit={saveAmount} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div className="form-group" style={{ flex: 1 }}>
@@ -88,115 +93,137 @@ export default function SettingsPage() {
         </div>
 
         {/* Location Manager */}
-        <div className="card" style={{ padding: '24px' }}>
+        <div className="card" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Location Hierarchy</h3>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Manage Sub Divisions → Blocks → Gram Panchayats
-              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>SubDivision → Block → GP/Municipality → Village/Ward</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => startAdding('subdivision')}>+ Add Sub Division</button>
+            <button className="btn btn-primary btn-sm" onClick={() => startAdding({ type: 'subdivision' })}>+ Add Sub Division</button>
           </div>
 
-          {/* Add SubDivision inline */}
           {adding?.type === 'subdivision' && (
-            <AddInline
-              placeholder={addPlaceholder.subdivision}
-              value={inputVal} onChange={setInputVal}
-              onAdd={handleAdd} onCancel={() => setAdding(null)}
-              error={locError} loading={locLoading}
-              label="New Sub Division"
-            />
+            <AddInline placeholder="e.g. Basirhat" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Sub Division" />
           )}
 
-          {locations.length === 0 ? (
-            <div className="empty-state" style={{ padding: '32px' }}>
-              <p>No locations added yet. Start by adding a Sub Division.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {locations.map(sd => (
-                <div key={sd._id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                  {/* SubDivision row */}
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', background: 'var(--green-light)', gap: 10 }}>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--green-dark)', padding: 0, marginRight: 2 }}
-                      onClick={() => setExpandedSD(expandedSD === sd._id ? null : sd._id)}>
-                      {expandedSD === sd._id ? '▾' : '▸'}
-                    </button>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--green-dark)', flex: 1 }}>🏛 {sd.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--green)', marginRight: 8 }}>{sd.blocks.length} block{sd.blocks.length !== 1 ? 's' : ''}</span>
-                    <button className="btn btn-secondary btn-sm" onClick={() => { setExpandedSD(sd._id); startAdding('block', sd._id) }}>+ Block</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete('subdivision', sd._id)}>✕</button>
-                  </div>
+          {locations.length === 0 && !adding && (
+            <div className="empty-state" style={{ padding: 32 }}><p>No locations added yet.</p></div>
+          )}
 
-                  {/* Blocks */}
-                  {expandedSD === sd._id && (
-                    <div style={{ padding: '8px 14px 12px 32px', background: 'var(--surface)' }}>
-                      {/* Add block inline */}
-                      {adding?.type === 'block' && adding.subDivisionId === sd._id && (
-                        <AddInline
-                          placeholder={addPlaceholder.block}
-                          value={inputVal} onChange={setInputVal}
-                          onAdd={handleAdd} onCancel={() => setAdding(null)}
-                          error={locError} loading={locLoading}
-                          label="New Block"
-                        />
-                      )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {locations.map(sd => (
+              <div key={sd._id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                {/* SubDivision */}
+                <div style={rowStyle('var(--green-light)')}>
+                  <button style={expandBtn(expandedSD === sd._id)} onClick={() => setExpandedSD(expandedSD === sd._id ? null : sd._id)}>
+                    {expandedSD === sd._id ? '▾' : '▸'}
+                  </button>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--green-dark)', flex: 1 }}>🏛 {sd.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--green)', marginRight: 8 }}>{sd.blocks.length} blocks</span>
+                  {addBtn('+ Block', () => { setExpandedSD(sd._id); startAdding({ type: 'block', subDivisionId: sd._id }) })}
+                  {delBtn(() => handleDelete({ type: 'subdivision', subDivisionId: sd._id }))}
+                </div>
 
-                      {sd.blocks.length === 0 && adding?.subDivisionId !== sd._id && (
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No blocks yet. Add one above.</p>
-                      )}
+                {expandedSD === sd._id && (
+                  <div style={{ padding: '8px 12px 12px 28px', background: 'var(--surface)' }}>
+                    {adding?.type === 'block' && adding.subDivisionId === sd._id && (
+                      <AddInline placeholder="e.g. Baduria" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Block" />
+                    )}
 
-                      {sd.blocks.map(block => (
-                        <div key={block._id} style={{ marginBottom: 8 }}>
-                          {/* Block row */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                            <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: 0 }}
-                              onClick={() => setExpandedBlock(expandedBlock === block._id ? null : block._id)}>
-                              {expandedBlock === block._id ? '▾' : '▸'}
-                            </button>
-                            <span style={{ fontWeight: 500, fontSize: 13, flex: 1 }}>📍 {block.name}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 6 }}>{block.gramPanchayats.length} GP{block.gramPanchayats.length !== 1 ? 's' : ''}</span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => { setExpandedBlock(block._id); startAdding('gp', sd._id, block._id) }}>+ GP</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete('block', sd._id, block._id)}>✕</button>
-                          </div>
+                    {sd.blocks.map(block => (
+                      <div key={block._id} style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                          <button style={expandBtn(expandedBlock === block._id)} onClick={() => setExpandedBlock(expandedBlock === block._id ? null : block._id)}>
+                            {expandedBlock === block._id ? '▾' : '▸'}
+                          </button>
+                          <span style={{ fontWeight: 500, fontSize: 13, flex: 1 }}>📍 {block.name}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>
+                            {block.gramPanchayats.length} GP · {block.municipalities.length} Mun
+                          </span>
+                          {addBtn('+ GP', () => { setExpandedBlock(block._id); startAdding({ type: 'gp', subDivisionId: sd._id, blockId: block._id }) })}
+                          {addBtn('+ Mun', () => { setExpandedBlock(block._id); startAdding({ type: 'municipality', subDivisionId: sd._id, blockId: block._id }) })}
+                          {delBtn(() => handleDelete({ type: 'block', subDivisionId: sd._id, blockId: block._id }))}
+                        </div>
 
-                          {/* GPs */}
-                          {expandedBlock === block._id && (
-                            <div style={{ paddingLeft: 20, paddingTop: 6 }}>
-                              {/* Add GP inline */}
-                              {adding?.type === 'gp' && adding.blockId === block._id && (
-                                <AddInline
-                                  placeholder={addPlaceholder.gp}
-                                  value={inputVal} onChange={setInputVal}
-                                  onAdd={handleAdd} onCancel={() => setAdding(null)}
-                                  error={locError} loading={locLoading}
-                                  label="New Gram Panchayat"
-                                />
-                              )}
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {block.gramPanchayats.map(gp => (
-                                  <div key={gp._id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 12 }}>
-                                    <span>🌿 {gp.name}</span>
-                                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--red)', padding: 0, lineHeight: 1 }}
-                                      onClick={() => handleDelete('gp', sd._id, block._id, gp._id)}>✕</button>
+                        {expandedBlock === block._id && (
+                          <div style={{ paddingLeft: 20, paddingTop: 8 }}>
+                            {adding?.type === 'gp' && adding.blockId === block._id && (
+                              <AddInline placeholder="e.g. Aturia" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Gram Panchayat" />
+                            )}
+                            {adding?.type === 'municipality' && adding.blockId === block._id && (
+                              <AddInline placeholder="e.g. Baduria Municipality" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Municipality" />
+                            )}
+
+                            {/* GPs */}
+                            {block.gramPanchayats.map(gp => (
+                              <div key={gp._id} style={{ marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: '#f0f9f4', borderRadius: 'var(--radius-sm)', border: '1px solid #c8e6d4' }}>
+                                  <button style={expandBtn(expandedGP === gp._id)} onClick={() => setExpandedGP(expandedGP === gp._id ? null : gp._id)}>
+                                    {expandedGP === gp._id ? '▾' : '▸'}
+                                  </button>
+                                  <span style={{ fontSize: 13, flex: 1 }}>🌿 {gp.name}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>{gp.villages.length} villages</span>
+                                  {addBtn('+ Village', () => { setExpandedGP(gp._id); startAdding({ type: 'village', subDivisionId: sd._id, blockId: block._id, gpId: gp._id }) })}
+                                  {delBtn(() => handleDelete({ type: 'gp', subDivisionId: sd._id, blockId: block._id, gpId: gp._id }))}
+                                </div>
+                                {expandedGP === gp._id && (
+                                  <div style={{ paddingLeft: 20, paddingTop: 6 }}>
+                                    {adding?.type === 'village' && adding.gpId === gp._id && (
+                                      <AddInline placeholder="e.g. Village Name" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Village" />
+                                    )}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      {gp.villages.map(v => (
+                                        <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 12 }}>
+                                          <span>🏘 {v.name}</span>
+                                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--red)', padding: 0 }}
+                                            onClick={() => handleDelete({ type: 'village', subDivisionId: sd._id, blockId: block._id, gpId: gp._id, villageId: v._id })}>✕</button>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-                                ))}
-                                {block.gramPanchayats.length === 0 && adding?.blockId !== block._id && (
-                                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No GPs yet.</p>
                                 )}
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                            ))}
+
+                            {/* Municipalities */}
+                            {block.municipalities.map(mun => (
+                              <div key={mun._id} style={{ marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: '#f0f4ff', borderRadius: 'var(--radius-sm)', border: '1px solid #c8d4f0' }}>
+                                  <button style={expandBtn(expandedMun === mun._id)} onClick={() => setExpandedMun(expandedMun === mun._id ? null : mun._id)}>
+                                    {expandedMun === mun._id ? '▾' : '▸'}
+                                  </button>
+                                  <span style={{ fontSize: 13, flex: 1 }}>🏙 {mun.name}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 4 }}>{mun.wards.length} wards</span>
+                                  {addBtn('+ Ward', () => { setExpandedMun(mun._id); startAdding({ type: 'ward', subDivisionId: sd._id, blockId: block._id, munId: mun._id }) })}
+                                  {delBtn(() => handleDelete({ type: 'municipality', subDivisionId: sd._id, blockId: block._id, munId: mun._id }))}
+                                </div>
+                                {expandedMun === mun._id && (
+                                  <div style={{ paddingLeft: 20, paddingTop: 6 }}>
+                                    {adding?.type === 'ward' && adding.munId === mun._id && (
+                                      <AddInline placeholder="e.g. Ward No. 1" value={inputVal} onChange={setInputVal} onAdd={handleAdd} onCancel={() => setAdding(null)} error={locError} loading={locLoading} label="New Ward" />
+                                    )}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      {mun.wards.map(w => (
+                                        <div key={w._id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 12 }}>
+                                          <span>🔢 {w.name}</span>
+                                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--red)', padding: 0 }}
+                                            onClick={() => handleDelete({ type: 'ward', subDivisionId: sd._id, blockId: block._id, munId: mun._id, wardId: w._id })}>✕</button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>
@@ -213,18 +240,8 @@ function AddInline({ placeholder, value, onChange, onAdd, onCancel, error, loadi
       <div style={{ fontSize: 11, fontWeight: 600, color: '#7a5200', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}</div>
       {error && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>⚠ {error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          className="form-input"
-          autoFocus
-          placeholder={placeholder}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={handleKey}
-          style={{ flex: 1 }}
-        />
-        <button className="btn btn-primary btn-sm" onClick={onAdd} disabled={loading || !value.trim()}>
-          {loading ? '...' : 'Add'}
-        </button>
+        <input className="form-input" autoFocus placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} onKeyDown={handleKey} style={{ flex: 1 }} />
+        <button className="btn btn-primary btn-sm" onClick={onAdd} disabled={loading || !value.trim()}>{loading ? '...' : 'Add'}</button>
         <button className="btn btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
       </div>
     </div>

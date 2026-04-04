@@ -6,6 +6,16 @@ export interface IPaymentDetail {
   denominations?: { note: number; count: number }[]
 }
 
+export interface IPatientAddress {
+  type: 'gp' | 'municipality' | ''
+  subDivision: string
+  block: string
+  gramPanchayat: string
+  village: string
+  municipality: string
+  ward: string
+}
+
 export interface IPatient extends Document {
   name: string
   mobile: string
@@ -13,6 +23,7 @@ export interface IPatient extends Document {
   doa: Date
   helperId: mongoose.Types.ObjectId
   incentiveAmount: number
+  address: IPatientAddress
   paymentStatus: 'pending' | 'clearance'
   paymentDetail: IPaymentDetail
   createdAt: Date
@@ -25,6 +36,15 @@ const PatientSchema = new Schema<IPatient>({
   doa: { type: Date, required: true },
   helperId: { type: Schema.Types.ObjectId, ref: 'Helper', required: true },
   incentiveAmount: { type: Number, required: true },
+  address: {
+    type: { type: String, enum: ['gp', 'municipality', ''], default: '' },
+    subDivision: { type: String, default: '' },
+    block: { type: String, default: '' },
+    gramPanchayat: { type: String, default: '' },
+    village: { type: String, default: '' },
+    municipality: { type: String, default: '' },
+    ward: { type: String, default: '' },
+  },
   paymentStatus: { type: String, enum: ['pending', 'clearance'], default: 'pending' },
   paymentDetail: {
     mode: { type: String, enum: ['cash', 'online', ''], default: '' },

@@ -8,33 +8,46 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const subDivision = searchParams.get('subDivision')
   const block = searchParams.get('block')
-  const gramPanchayat = searchParams.get('gramPanchayat')
-
+  const bcId = searchParams.get('blockCoordinatorId')
   const filter: any = {}
   if (subDivision) filter.subDivision = subDivision
   if (block) filter.block = block
-  if (gramPanchayat) filter.gramPanchayat = gramPanchayat
-
-  const helpers = await Helper.find(filter).sort({ createdAt: -1 })
+  if (bcId) filter.blockCoordinatorId = bcId
+  const helpers = await Helper.find(filter)
+    .populate('blockCoordinatorId', 'name coordinatorId')
+    .sort({ createdAt: -1 })
   return NextResponse.json(helpers)
 }
 
 export async function POST(req: NextRequest) {
   const auth = await verifyAuth()
-  if (!auth || auth.role !== 'admin') {
+  if (!auth || (auth.role !== 'admin' && auth.role !== 'receptionist')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   await connectDB()
   const body = await req.json()
   const helper = await Helper.create(body)
-  return NextResponse.json(helper, { status: 201 })
+  const populated = await helper.populate('blockCoordinatorId', 'name coordinatorId')
+  return NextResponse.json(populated, { status: 201 })
+}
+
+export async function PUT(req: NextRequest) {
+  const auth = await verifyAuth()
+  if (!auth || (auth.role !== 'admin' && auth.role !== 'receptionist')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  await connectDB()
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  const body = await req.json()
+  const updated = await Helper.findByIdAndUpdate(id, body, { new: true })
+    .populate('blockCoordinatorId', 'name coordinatorId')
+  return NextResponse.json(updated)
 }
 
 export async function DELETE(req: NextRequest) {
   const auth = await verifyAuth()
-  if (!auth || auth.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!auth || auth.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   await connectDB()
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

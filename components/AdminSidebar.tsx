@@ -27,6 +27,7 @@ type NavItem = NavSection | NavLink;
 const navItems: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "⊞" },
   { section: "Manage" },
+  { href: "/admin/block-coordinators", label: "Block Coordinator", icon: "🗂" },
   { href: "/admin/helpers", label: "Swasthya Bondhu", icon: "👥" },
   { href: "/admin/patients", label: "Patients", icon: "🏥" },
   { href: "/admin/receptionists", label: "Receptionists", icon: "🖥" },
