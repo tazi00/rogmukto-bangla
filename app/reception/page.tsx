@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import PaymentModal from "@/components/PaymentModal";
 import ReceptionHeader from "@/components/ReceptionistHeader";
 import AddHelperModal from "@/components/AddHelperModal";
 import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from "@/components/PatientAddressSelect";
 import PatientExtraFields from "@/components/PatientExtraFields";
+import DischargePanel from "@/components/DischargePanel";
 
 interface Helper {
   _id: string; name: string; phone: string;
@@ -20,6 +20,7 @@ interface Patient {
   incentiveAmount: number; paymentStatus: string; paymentDetail?: any;
   helperId: { _id: string; name: string; block: string; gramPanchayats: any[] };
   address?: any;
+  dischargeStatus: string;
 }
 
 const EMPTY_FORM = { name: "", mobile: "", ipdNo: "", doa: "", helperId: "", incentiveAmount: "", pincode: "", aadharNumber: "", swasthaSathNumber: "" };
@@ -34,6 +35,7 @@ const MONTHS = [
 export default function ReceptionPage() {
   const router = useRouter();
   const now = new Date();
+  const [activeTab, setActiveTab] = useState<"admission" | "discharge">("admission");
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
   const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
   const [filterHelper, setFilterHelper] = useState("");
@@ -50,7 +52,6 @@ export default function ReceptionPage() {
   const [selectedHelper, setSelectedHelper] = useState<Helper | null>(null);
 
   const [editPatient, setEditPatient] = useState<Patient | null>(null);
-  const [paymentPatient, setPaymentPatient] = useState<Patient | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showAddHelper, setShowAddHelper] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,7 +136,7 @@ export default function ReceptionPage() {
     if (!form.helperId) { setError("Select a Swasthya Bondhu"); return; }
     setLoading(true); setError(""); setSuccess("");
     try {
-      const body = { ...form, incentiveAmount: Number(form.incentiveAmount), address };
+      const body = { ...form, incentiveAmount: Number(form.incentiveAmount) || defaultAmount, address };
       const url = editPatient ? `/api/patients?id=${editPatient._id}` : "/api/patients";
       const method = editPatient ? "PUT" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -163,6 +164,24 @@ export default function ReceptionPage() {
 
       <div style={{ padding: "20px" }}>
         {success && <div className="alert alert-success" style={{ marginBottom: 14 }}>{success}</div>}
+
+        {/* Tab Toggle */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
+          <div className="toggle-group">
+            <button className={`toggle-btn ${activeTab === "admission" ? "active" : ""}`} onClick={() => setActiveTab("admission")}>
+              🏥 Patient Admission
+            </button>
+            <button className={`toggle-btn ${activeTab === "discharge" ? "active" : ""}`} onClick={() => setActiveTab("discharge")}>
+              🚪 Patient Discharge
+            </button>
+          </div>
+        </div>
+
+        {activeTab === "discharge" && (
+          <DischargePanel patients={patients} onRefresh={loadPatients} />
+        )}
+
+        <div style={{ display: activeTab === "admission" ? "block" : "none" }}>
 
         {/* Filter + Actions bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
@@ -199,7 +218,6 @@ export default function ReceptionPage() {
           <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--green-light)", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--green-dark)", display: "flex", gap: 20, flexWrap: "wrap" }}>
             <span>👤 <strong>{helpers.find(h => h._id === filterHelper)?.name}</strong></span>
             <span>📋 Patients: <strong>{displayPatients.length}</strong></span>
-            <span>💰 Total: <strong>₹{displayPatients.reduce((s, p) => s + p.incentiveAmount, 0).toLocaleString()}</strong></span>
           </div>
         )}
 
@@ -209,7 +227,7 @@ export default function ReceptionPage() {
             <thead>
               <tr>
                 <th>Patient</th><th>IPD</th><th>DOA</th><th>Swasthya Bondhu</th>
-                <th>Address</th><th>₹</th><th>Status</th><th>Mode</th><th>Actions</th>
+                <th>Address</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -231,18 +249,8 @@ export default function ReceptionPage() {
                       ? `${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ''}`
                       : '—'}
                   </td>
-                  <td style={{ fontWeight: 600 }}>₹{p.incentiveAmount}</td>
-                  <td>
-                    <span className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}>
-                      {p.paymentStatus === "clearance" ? "✓ Cleared" : "⏳ Pending"}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12 }}>
-                    {p.paymentDetail?.mode === "cash" ? "💵" : p.paymentDetail?.mode === "online" ? "🏦" : "—"}
-                  </td>
                   <td>
                     <div style={{ display: "flex", gap: 5 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setPaymentPatient(p)}>₹</button>
                       <button className="btn btn-secondary btn-sm" onClick={() => openEdit(p)}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p._id)}>Del</button>
                     </div>
@@ -343,11 +351,6 @@ export default function ReceptionPage() {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Incentive Amount (₹) <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>default ₹{defaultAmount}</span></label>
-                  <input className="form-input" type="number" min="0" required value={form.incentiveAmount} onChange={e => setForm({...form, incentiveAmount: e.target.value})} />
-                </div>
-
                 {/* Patient Address */}
                 <PatientAddressSelect value={address} onChange={setAddress} />
               </div>
@@ -362,8 +365,9 @@ export default function ReceptionPage() {
         </div>
       )}
 
+      </div>
+
       {showAddHelper && <AddHelperModal onClose={() => setShowAddHelper(false)} onSave={() => fetch("/api/helpers").then(r => r.json()).then(d => setHelpers(Array.isArray(d) ? d : []))} />}
-      {paymentPatient && <PaymentModal patient={paymentPatient} onClose={() => setPaymentPatient(null)} onSave={loadPatients} />}
     </div>
   );
 }

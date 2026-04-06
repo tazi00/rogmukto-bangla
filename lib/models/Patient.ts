@@ -18,12 +18,16 @@ export interface IPatient extends Document {
   name: string; mobile: string; ipdNo: string; doa: Date
   helperId: mongoose.Types.ObjectId
   incentiveAmount: number
-  pincode: string
-  aadharNumber: string
-  swasthaSathNumber: string
+  pincode: string; aadharNumber: string; swasthaSathNumber: string
   address: IPatientAddress
   paymentStatus: 'pending' | 'clearance'
   paymentDetail: IPaymentDetail
+  // Discharge fields
+  dischargeStatus: 'admitted' | 'continued' | 'transferred'
+  dischargeDate: Date | null
+  blockingAmount: number
+  dischargeAmount: number
+  incentiveDisabled: boolean
   createdAt: Date
 }
 
@@ -50,6 +54,11 @@ const PatientSchema = new Schema<IPatient>({
     remarks: { type: String, default: '' },
     denominations: [{ note: Number, count: Number }],
   },
+  dischargeStatus: { type: String, enum: ['admitted', 'continued', 'transferred'], default: 'admitted' },
+  dischargeDate: { type: Date, default: null },
+  blockingAmount: { type: Number, default: 0 },
+  dischargeAmount: { type: Number, default: 0 },
+  incentiveDisabled: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 })
 

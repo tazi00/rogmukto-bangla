@@ -3,6 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentModal from "@/components/PaymentModal";
 import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from "@/components/PatientAddressSelect";
+import DischargePanel from "@/components/DischargePanel";
+import AddHelperModal from "@/components/AddHelperModal";
 import PatientExtraFields from "@/components/PatientExtraFields";
 import SearchableSelect from "@/components/SearchableSelect";
 import MultiSearchSelect from "@/components/MultiSearchSelect";
@@ -18,7 +20,7 @@ interface Helper {
 interface Patient {
   _id: string; name: string; mobile: string; ipdNo: string; doa: string;
   incentiveAmount: number; paymentStatus: string; paymentDetail?: any; address?: any;
-  helperId: any;
+  helperId: any; dischargeStatus: string;
 }
 interface SubDiv { _id: string; name: string; blocks: { _id: string; name: string; gramPanchayats: any[]; municipalities: any[] }[] }
 
@@ -38,7 +40,7 @@ export default function BCPanel() {
   const [bc, setBc] = useState<BC | null>(null);
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
   const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
-  const [activeTab, setActiveTab] = useState<"patients" | "helpers">("patients");
+  const [activeTab, setActiveTab] = useState<"patients" | "discharge" | "helpers">("patients");
   const [defaultAmount, setDefaultAmount] = useState(200);
 
   // Helpers state
@@ -217,12 +219,15 @@ export default function BCPanel() {
         <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div className="toggle-group">
             <button className={`toggle-btn ${activeTab === "patients" ? "active" : ""}`} onClick={() => setActiveTab("patients")}>🏥 Patients</button>
+            <button className={`toggle-btn ${activeTab === "discharge" ? "active" : ""}`} onClick={() => setActiveTab("discharge")}>🚪 Discharge</button>
             <button className={`toggle-btn ${activeTab === "helpers" ? "active" : ""}`} onClick={() => setActiveTab("helpers")}>👥 Swasthya Bondhu</button>
           </div>
-          {activeTab === "patients"
-            ? <button className="btn btn-primary" onClick={() => { setEditPatient(null); setPatientForm({...EMPTY_PATIENT, incentiveAmount: String(defaultAmount)}); setAddress(EMPTY_ADDRESS); setSelectedHelper(null); setHelperSearch(""); setPatientError(""); setShowPatientForm(true); }}>+ Add Patient</button>
-            : <button className="btn btn-primary" onClick={() => { setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGPs([]); setSelectedMuns([]); setHelperError(""); setShowHelperForm(true); }}>+ Add Swasthya Bondhu</button>
-          }
+          {activeTab === "patients" && (
+            <button className="btn btn-primary" onClick={() => { setEditPatient(null); setPatientForm({...EMPTY_PATIENT, incentiveAmount: String(defaultAmount)}); setAddress(EMPTY_ADDRESS); setSelectedHelper(null); setHelperSearch(""); setPatientError(""); setShowPatientForm(true); }}>+ Add Patient</button>
+          )}
+          {activeTab === "helpers" && (
+            <button className="btn btn-primary" onClick={() => { setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGPs([]); setSelectedMuns([]); setHelperError(""); setShowHelperForm(true); }}>+ Add Swasthya Bondhu</button>
+          )}
         </div>
 
         {/* PATIENTS TAB */}
@@ -283,12 +288,17 @@ export default function BCPanel() {
           </>
         )}
 
+        {/* DISCHARGE TAB */}
+        {activeTab === "discharge" && (
+          <DischargePanel patients={patients} onRefresh={loadPatients} />
+        )}
+
         {/* HELPERS TAB */}
         {activeTab === "helpers" && (
           <div className="table-wrapper">
             <table>
               <thead>
-                <tr><th>Swasthya Bondhu ID</th><th>Name</th><th>Phone</th><th>Block</th><th>GP / Municipality</th><th>Tag</th></tr>
+                <tr><th>Helper ID</th><th>Name</th><th>Phone</th><th>Block</th><th>GP / Municipality</th><th>Tag</th></tr>
               </thead>
               <tbody>
                 {helpers.length === 0
@@ -312,99 +322,9 @@ export default function BCPanel() {
         )}
       </div>
 
-      {/* Add Helper Modal */}
-      {showHelperForm && bc && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowHelperForm(false)}>
-          <div className="modal" style={{ maxWidth: 520, maxHeight: "92vh", overflowY: "auto" }}>
-            <div className="modal-header">
-              <h3>Add Swasthya Bondhu</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowHelperForm(false)}>✕</button>
-            </div>
-            <form onSubmit={handleHelperSubmit}>
-              <div className="modal-body">
-                {helperError && <div className="alert alert-error">{helperError}</div>}
-                <div style={{ padding: "8px 12px", background: "var(--green-light)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--green-dark)", marginBottom: 4 }}>
-                  Block Coordinator: <strong>{bc.name}</strong> · {bc.subDivision}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div className="form-group">
-                    <label className="form-label">Swasthya Bondhu ID <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>(optional)</span></label>
-                    <input className="form-input" value={helperForm.helperId} onChange={e => setHelperForm({...helperForm, helperId: e.target.value})} placeholder="e.g. SB-001" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Full Name *</label>
-                    <input className="form-input" required value={helperForm.name} onChange={e => setHelperForm({...helperForm, name: e.target.value})} placeholder="Full name" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Phone *</label>
-                    <input className="form-input" required value={helperForm.phone} onChange={e => setHelperForm({...helperForm, phone: e.target.value})} placeholder="10-digit" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Block *</label>
-                    <SearchableSelect
-                      options={bc.blocks.map(b => ({ label: b, value: b }))}
-                      value={helperForm.block}
-                      onChange={v => { setHelperForm({...helperForm, block: v}); setSelectedGPs([]); setSelectedMuns([]); }}
-                      placeholder="Select Block"
-                    />
-                  </div>
-                </div>
-
-                {helperForm.block && (
-                  <>
-                    <div className="form-group">
-                      <label className="form-label">Location Type *</label>
-                      <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                        <label style={checkStyle(useGP)} onClick={() => { setUseGP(!useGP); setSelectedGPs([]); }}>{useGP ? "✓ " : ""}🌿 Gram Panchayat</label>
-                        <label style={checkStyle(useMun)} onClick={() => { setUseMun(!useMun); setSelectedMuns([]); }}>{useMun ? "✓ " : ""}🏙 Municipality</label>
-                      </div>
-                    </div>
-                    {useGP && blockData && (
-                      <div className="form-group">
-                        <MultiSearchSelect label="Gram Panchayat(s) *"
-                          options={blockData.gramPanchayats.map((g: any) => ({ label: g.name, value: g.name }))}
-                          values={selectedGPs.map(g => g.gpName)} onChange={toggleGPSelected} placeholder="Select GPs..." />
-                        {selectedGPs.map(selGP => {
-                          const gpObj = blockData.gramPanchayats.find((g: any) => g.name === selGP.gpName);
-                          if (!gpObj || gpObj.villages.length === 0) return null;
-                          return (
-                            <div key={selGP.gpName} style={{ marginTop: 8, paddingLeft: 12, borderLeft: "3px solid var(--green-light)" }}>
-                              <MultiSearchSelect label={`🌿 ${selGP.gpName} — Villages`}
-                                options={gpObj.villages.map((v: any) => ({ label: v.name, value: v.name }))}
-                                values={selGP.villages} onChange={villages => setGPVillages(selGP.gpName, villages)} placeholder="Select villages..." />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {useMun && blockData && (
-                      <div className="form-group">
-                        <MultiSearchSelect label="Municipality(s) *"
-                          options={blockData.municipalities.map((m: any) => ({ label: m.name, value: m.name }))}
-                          values={selectedMuns.map(m => m.municipalityName)} onChange={toggleMunSelected} placeholder="Select municipalities..." />
-                        {selectedMuns.map(selMun => {
-                          const munObj = blockData.municipalities.find((m: any) => m.name === selMun.municipalityName);
-                          if (!munObj || munObj.wards.length === 0) return null;
-                          return (
-                            <div key={selMun.municipalityName} style={{ marginTop: 8, paddingLeft: 12, borderLeft: "3px solid #d0d8ff" }}>
-                              <MultiSearchSelect label={`🏙 ${selMun.municipalityName} — Wards`}
-                                options={munObj.wards.map((w: any) => ({ label: w.name, value: w.name }))}
-                                values={selMun.wards} onChange={wards => setMunWards(selMun.municipalityName, wards)} placeholder="Select wards..." />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowHelperForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={helperLoading || !helperForm.block}>{helperLoading ? "Saving..." : "Add Swasthya Bondhu"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Add Helper Modal — using shared component */}
+      {showHelperForm && (
+        <AddHelperModal onClose={() => setShowHelperForm(false)} onSave={() => { loadHelpers(); }} />
       )}
 
       {/* Add/Edit Patient Modal */}

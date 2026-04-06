@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import PaymentModal from '@/components/PaymentModal'
 import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from '@/components/PatientAddressSelect'
 import PatientExtraFields from '@/components/PatientExtraFields'
+import DischargePanel from '@/components/DischargePanel'
 
 interface Helper {
   _id: string; name: string; phone: string; subDivision: string; block: string
@@ -14,6 +15,7 @@ interface Patient {
   _id: string; name: string; mobile: string; ipdNo: string; doa: string
   incentiveAmount: number; paymentStatus: string; paymentDetail?: any; address?: any
   helperId: { _id: string; name: string; block: string; subDivision: string; tag: string }
+  dischargeStatus: string; blockingAmount?: number; dischargeAmount?: number; dischargeDate?: string
 }
 
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
@@ -29,6 +31,7 @@ export default function AdminPatientsPage() {
   const now = new Date()
   const [selYear, setSelYear] = useState(String(now.getFullYear()))
   const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'))
+  const [activeTab, setActiveTab] = useState<'admission' | 'discharge'>('admission')
   const [statusFilter, setStatusFilter] = useState('')
   const [filterHelper, setFilterHelper] = useState('')
   const [patients, setPatients] = useState<Patient[]>([])
@@ -122,10 +125,20 @@ export default function AdminPatientsPage() {
   return (
     <>
       <div className="page-header">
-        <h2>Patients</h2>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Patient</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <h2>Patients</h2>
+          <div className="toggle-group">
+            <button className={`toggle-btn ${activeTab === 'admission' ? 'active' : ''}`} onClick={() => setActiveTab('admission')}>🏥 Admission</button>
+            <button className={`toggle-btn ${activeTab === 'discharge' ? 'active' : ''}`} onClick={() => setActiveTab('discharge')}>🚪 Discharge</button>
+          </div>
+        </div>
+        {activeTab === 'admission' && <button className="btn btn-primary" onClick={openAdd}>+ Add Patient</button>}
       </div>
       <div className="page-body">
+        {activeTab === 'discharge' && (
+          <DischargePanel patients={patients} onRefresh={load} />
+        )}
+        <div style={{ display: activeTab === 'discharge' ? 'none' : 'block' }}>
         <div className="filter-bar" style={{ marginBottom: 16 }}>
           <div className="form-group">
             <label className="form-label">Year</label>
@@ -294,6 +307,8 @@ export default function AdminPatientsPage() {
           </div>
         </div>
       )}
+
+      </div>
 
       {paymentPatient && <PaymentModal patient={paymentPatient} onClose={() => setPaymentPatient(null)} onSave={load} />}
     </>
