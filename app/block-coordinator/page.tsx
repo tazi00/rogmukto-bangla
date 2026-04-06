@@ -199,89 +199,267 @@ export default function BCPanel() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
       {/* Header */}
-      <div style={{ background: "var(--green-dark)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+      <div
+        style={{
+          background: "var(--green-dark)",
+          padding: "14px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
         <div>
-          <h1 style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>Rogmukto Bangla</h1>
+          <h1 style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>
+            Rogmukto Bangla
+          </h1>
           <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
-            Block Coordinator Panel {bc ? `— ${bc.name} (${bc.coordinatorId})` : ""}
+            Block Coordinator Panel{" "}
+            {bc ? `— ${bc.name} (${bc.coordinatorId})` : ""}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <a href="/view" target="_blank" className="btn btn-secondary btn-sm">↗ View Panel</a>
-          <button className="btn btn-secondary btn-sm" onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/login"); }}>Logout</button>
+          <a href="/view" target="_blank" className="btn btn-secondary btn-sm">
+            ↗ View Panel
+          </a>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              router.push("/login");
+            }}
+          >
+            Logout
+          </button>
         </div>
       </div>
 
       <div style={{ padding: "20px" }}>
-        {success && <div className="alert alert-success" style={{ marginBottom: 14 }}>{success}</div>}
+        {success && (
+          <div className="alert alert-success" style={{ marginBottom: 14 }}>
+            {success}
+          </div>
+        )}
 
         {/* Tab toggle */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 20,
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
           <div className="toggle-group">
-            <button className={`toggle-btn ${activeTab === "patients" ? "active" : ""}`} onClick={() => setActiveTab("patients")}>🏥 Patients</button>
-            <button className={`toggle-btn ${activeTab === "discharge" ? "active" : ""}`} onClick={() => setActiveTab("discharge")}>🚪 Discharge</button>
-            <button className={`toggle-btn ${activeTab === "helpers" ? "active" : ""}`} onClick={() => setActiveTab("helpers")}>👥 Swasthya Bondhu</button>
+            <button
+              className={`toggle-btn ${activeTab === "patients" ? "active" : ""}`}
+              onClick={() => setActiveTab("patients")}
+            >
+              🏥 Patients
+            </button>
+            <button
+              className={`toggle-btn ${activeTab === "discharge" ? "active" : ""}`}
+              onClick={() => setActiveTab("discharge")}
+            >
+              🚪 Discharge
+            </button>
+            <button
+              className={`toggle-btn ${activeTab === "helpers" ? "active" : ""}`}
+              onClick={() => setActiveTab("helpers")}
+            >
+              👥 Swasthya Bondhu
+            </button>
           </div>
           {activeTab === "patients" && (
-            <button className="btn btn-primary" onClick={() => { setEditPatient(null); setPatientForm({...EMPTY_PATIENT, incentiveAmount: String(defaultAmount)}); setAddress(EMPTY_ADDRESS); setSelectedHelper(null); setHelperSearch(""); setPatientError(""); setShowPatientForm(true); }}>+ Add Patient</button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setEditPatient(null);
+                setPatientForm({
+                  ...EMPTY_PATIENT,
+                  incentiveAmount: String(defaultAmount),
+                });
+                setAddress(EMPTY_ADDRESS);
+                setSelectedHelper(null);
+                setHelperSearch("");
+                setPatientError("");
+                setShowPatientForm(true);
+              }}
+            >
+              + Add Patient
+            </button>
           )}
           {activeTab === "helpers" && (
-            <button className="btn btn-primary" onClick={() => { setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGPs([]); setSelectedMuns([]); setHelperError(""); setShowHelperForm(true); }}>+ Add Swasthya Bondhu</button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setHelperForm(EMPTY_HELPER);
+                setUseGP(false);
+                setUseMun(false);
+                setSelectedGPs([]);
+                setSelectedMuns([]);
+                setHelperError("");
+                setShowHelperForm(true);
+              }}
+            >
+              + Add Swasthya Bondhu
+            </button>
           )}
         </div>
 
         {/* PATIENTS TAB */}
         {activeTab === "patients" && (
           <>
-            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginBottom: 14,
+                flexWrap: "wrap",
+                alignItems: "flex-end",
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Year</label>
-                <select className="form-select" style={{ width: 100 }} value={selYear} onChange={e => setSelYear(e.target.value)}>
-                  {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                <select
+                  className="form-select"
+                  style={{ width: 100 }}
+                  value={selYear}
+                  onChange={(e) => setSelYear(e.target.value)}
+                >
+                  {YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Month</label>
-                <select className="form-select" style={{ width: 140 }} value={selMonth} onChange={e => setSelMonth(e.target.value)}>
-                  {MONTHS.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                <select
+                  className="form-select"
+                  style={{ width: 140 }}
+                  value={selMonth}
+                  onChange={(e) => setSelMonth(e.target.value)}
+                >
+                  {MONTHS.map((m) => (
+                    <option key={m.val} value={m.val}>
+                      {m.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Swasthya Bondhu</label>
-                <select className="form-select" style={{ width: 180 }} value={filterHelper} onChange={e => setFilterHelper(e.target.value)}>
+                <select
+                  className="form-select"
+                  style={{ width: 180 }}
+                  value={filterHelper}
+                  onChange={(e) => setFilterHelper(e.target.value)}
+                >
                   <option value="">All</option>
-                  {helpers.map(h => <option key={h._id} value={h._id}>{h.name}</option>)}
+                  {helpers.map((h) => (
+                    <option key={h._id} value={h._id}>
+                      {h.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Patient</th><th>IPD</th><th>DOA</th><th>Helper</th><th>Address</th><th>₹</th><th>Status</th><th>Actions</th></tr>
+                  <tr>
+                    <th>Patient</th>
+                    <th>IPD</th>
+                    <th>DOA</th>
+                    <th>Helper</th>
+                    <th>Address</th>
+                    <th>₹</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {displayPatients.length === 0
-                    ? <tr><td colSpan={8}><div className="empty-state" style={{ padding: 24 }}><p>No patients found.</p></div></td></tr>
-                    : displayPatients.map(p => (
+                  {displayPatients.length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="empty-state" style={{ padding: 24 }}>
+                          <p>No patients found.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    displayPatients.map((p) => (
                       <tr key={p._id}>
-                        <td><div style={{ fontWeight: 500, fontSize: 13 }}>{p.name}</div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.mobile}</div></td>
-                        <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.ipdNo}</td>
-                        <td style={{ fontSize: 12 }}>{new Date(p.doa).toLocaleDateString("en-IN")}</td>
-                        <td style={{ fontSize: 12 }}>{p.helperId?.name || "—"}</td>
-                        <td style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                          {p.address?.type === "gp" ? `${p.address.gramPanchayat}${p.address.village ? ` / ${p.address.village}` : ""}` : p.address?.type === "municipality" ? `${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ""}` : "—"}
+                        <td>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>
+                            {p.name}
+                          </div>
+                          <div
+                            style={{ fontSize: 11, color: "var(--text-muted)" }}
+                          >
+                            {p.mobile}
+                          </div>
                         </td>
-                        <td style={{ fontWeight: 600 }}>₹{p.incentiveAmount}</td>
-                        <td><span className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}>{p.paymentStatus === "clearance" ? "✓ Cleared" : "⏳ Pending"}</span></td>
+                        <td style={{ fontFamily: "monospace", fontSize: 11 }}>
+                          {p.ipdNo}
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {new Date(p.doa).toLocaleDateString("en-IN")}
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {p.helperId?.name || "—"}
+                        </td>
+                        <td
+                          style={{ fontSize: 11, color: "var(--text-muted)" }}
+                        >
+                          {p.address?.type === "gp"
+                            ? `${p.address.gramPanchayat}${p.address.village ? ` / ${p.address.village}` : ""}`
+                            : p.address?.type === "municipality"
+                              ? `${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ""}`
+                              : "—"}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          ₹{p.incentiveAmount}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
+                          >
+                            {p.paymentStatus === "clearance"
+                              ? "✓ Cleared"
+                              : "⏳ Pending"}
+                          </span>
+                        </td>
                         <td>
                           <div style={{ display: "flex", gap: 5 }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => setPaymentPatient(p)}>₹</button>
-                            <button className="btn btn-secondary btn-sm" onClick={() => openEditPatient(p)}>Edit</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => deletePatient(p._id)}>Del</button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setPaymentPatient(p)}
+                            >
+                              ₹
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => openEditPatient(p)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => deletePatient(p._id)}
+                            >
+                              Del
+                            </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -298,24 +476,57 @@ export default function BCPanel() {
           <div className="table-wrapper">
             <table>
               <thead>
-                <tr><th>Helper ID</th><th>Name</th><th>Phone</th><th>Block</th><th>GP / Municipality</th><th>Tag</th></tr>
+                <tr>
+                  <th>Swasthya Bondhu ID</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Block</th>
+                  <th>GP / Municipality</th>
+                  <th>Tag</th>
+                </tr>
               </thead>
               <tbody>
-                {helpers.length === 0
-                  ? <tr><td colSpan={6}><div className="empty-state" style={{ padding: 24 }}><p>No Swasthya Bondhu added yet.</p></div></td></tr>
-                  : helpers.map(h => (
+                {helpers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="empty-state" style={{ padding: 24 }}>
+                        <p>No Swasthya Bondhu added yet.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  helpers.map((h) => (
                     <tr key={h._id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{h.helperId || "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                        {h.helperId || "—"}
+                      </td>
                       <td style={{ fontWeight: 500 }}>{h.name}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{h.phone}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                        {h.phone}
+                      </td>
                       <td style={{ fontSize: 12 }}>{h.block}</td>
                       <td style={{ fontSize: 11 }}>
-                        {h.gramPanchayats?.map(g => <div key={g.gpName}>🌿 {g.gpName}{g.villages.length > 0 ? ` (${g.villages.length})` : ""}</div>)}
-                        {h.municipalities?.map(m => <div key={m.municipalityName}>🏙 {m.municipalityName}{m.wards.length > 0 ? ` (${m.wards.length})` : ""}</div>)}
+                        {h.gramPanchayats?.map((g) => (
+                          <div key={g.gpName}>
+                            🌿 {g.gpName}
+                            {g.villages.length > 0
+                              ? ` (${g.villages.length})`
+                              : ""}
+                          </div>
+                        ))}
+                        {h.municipalities?.map((m) => (
+                          <div key={m.municipalityName}>
+                            🏙 {m.municipalityName}
+                            {m.wards.length > 0 ? ` (${m.wards.length})` : ""}
+                          </div>
+                        ))}
                       </td>
-                      <td><span className="badge badge-green">{h.tag}</span></td>
+                      <td>
+                        <span className="badge badge-green">{h.tag}</span>
+                      </td>
                     </tr>
-                  ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -324,86 +535,288 @@ export default function BCPanel() {
 
       {/* Add Helper Modal — using shared component */}
       {showHelperForm && (
-        <AddHelperModal onClose={() => setShowHelperForm(false)} onSave={() => { loadHelpers(); }} />
+        <AddHelperModal
+          onClose={() => setShowHelperForm(false)}
+          onSave={() => {
+            loadHelpers();
+          }}
+        />
       )}
 
       {/* Add/Edit Patient Modal */}
       {showPatientForm && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPatientForm(false)}>
-          <div className="modal" style={{ maxWidth: 540, maxHeight: "92vh", overflowY: "auto" }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) =>
+            e.target === e.currentTarget && setShowPatientForm(false)
+          }
+        >
+          <div
+            className="modal"
+            style={{ maxWidth: 540, maxHeight: "92vh", overflowY: "auto" }}
+          >
             <div className="modal-header">
               <h3>{editPatient ? "Edit Patient" : "Add Patient"}</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowPatientForm(false)}>✕</button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowPatientForm(false)}
+              >
+                ✕
+              </button>
             </div>
             <form onSubmit={handlePatientSubmit}>
               <div className="modal-body">
-                {patientError && <div className="alert alert-error">{patientError}</div>}
-                <div className="form-group" ref={dropRef} style={{ position: "relative" }}>
+                {patientError && (
+                  <div className="alert alert-error">{patientError}</div>
+                )}
+                <div
+                  className="form-group"
+                  ref={dropRef}
+                  style={{ position: "relative" }}
+                >
                   <label className="form-label">Swasthya Bondhu *</label>
-                  <input className="form-input" placeholder="🔍 Search by name, phone, block, GP, ID..."
-                    value={helperSearch} autoComplete="off"
+                  <input
+                    className="form-input"
+                    placeholder="🔍 Search by name, phone, block, GP, ID..."
+                    value={helperSearch}
+                    autoComplete="off"
                     onFocus={() => setShowHelperDrop(true)}
-                    onChange={e => { setHelperSearch(e.target.value); setSelectedHelper(null); setPatientForm(f => ({...f, helperId: ""})); setShowHelperDrop(true); }} />
+                    onChange={(e) => {
+                      setHelperSearch(e.target.value);
+                      setSelectedHelper(null);
+                      setPatientForm((f) => ({ ...f, helperId: "" }));
+                      setShowHelperDrop(true);
+                    }}
+                  />
                   {showHelperDrop && !selectedHelper && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 200, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", boxShadow: "var(--shadow-md)", maxHeight: 200, overflowY: "auto" }}>
-                      {filteredHelpers.length === 0
-                        ? <div style={{ padding: "12px 14px", color: "var(--text-muted)", fontSize: 13 }}>No Swasthya Bondhu found</div>
-                        : filteredHelpers.map(h => (
-                          <div key={h._id} style={{ padding: "9px 14px", cursor: "pointer", borderBottom: "1px solid var(--gray-100)" }}
-                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--gray-50)"}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}
-                            onClick={() => { setSelectedHelper(h); setHelperSearch(h.name); setPatientForm(f => ({...f, helperId: h._id})); setShowHelperDrop(false); }}>
-                            <div style={{ fontWeight: 500, fontSize: 13 }}>{h.name}</div>
-                            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>📞 {h.phone} · 📍 {h.block}{h.helperId ? ` · ID: ${h.helperId}` : ""}</div>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        zIndex: 200,
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--surface)",
+                        boxShadow: "var(--shadow-md)",
+                        maxHeight: 200,
+                        overflowY: "auto",
+                      }}
+                    >
+                      {filteredHelpers.length === 0 ? (
+                        <div
+                          style={{
+                            padding: "12px 14px",
+                            color: "var(--text-muted)",
+                            fontSize: 13,
+                          }}
+                        >
+                          No Swasthya Bondhu found
+                        </div>
+                      ) : (
+                        filteredHelpers.map((h) => (
+                          <div
+                            key={h._id}
+                            style={{
+                              padding: "9px 14px",
+                              cursor: "pointer",
+                              borderBottom: "1px solid var(--gray-100)",
+                            }}
+                            onMouseEnter={(e) =>
+                              ((
+                                e.currentTarget as HTMLElement
+                              ).style.background = "var(--gray-50)")
+                            }
+                            onMouseLeave={(e) =>
+                              ((
+                                e.currentTarget as HTMLElement
+                              ).style.background = "")
+                            }
+                            onClick={() => {
+                              setSelectedHelper(h);
+                              setHelperSearch(h.name);
+                              setPatientForm((f) => ({
+                                ...f,
+                                helperId: h._id,
+                              }));
+                              setShowHelperDrop(false);
+                            }}
+                          >
+                            <div style={{ fontWeight: 500, fontSize: 13 }}>
+                              {h.name}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              📞 {h.phone} · 📍 {h.block}
+                              {h.helperId ? ` · ID: ${h.helperId}` : ""}
+                            </div>
                           </div>
-                        ))}
+                        ))
+                      )}
                     </div>
                   )}
                   {selectedHelper && (
-                    <div style={{ marginTop: 6, padding: "7px 10px", background: "var(--green-light)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--green-dark)", display: "flex", justifyContent: "space-between" }}>
-                      <span>✓ <strong>{selectedHelper.name}</strong> · {selectedHelper.block}</span>
-                      <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--green-dark)" }}
-                        onClick={() => { setSelectedHelper(null); setHelperSearch(""); setPatientForm(f => ({...f, helperId: ""})); setShowHelperDrop(true); }}>✕</button>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        padding: "7px 10px",
+                        background: "var(--green-light)",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: 12,
+                        color: "var(--green-dark)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>
+                        ✓ <strong>{selectedHelper.name}</strong> ·{" "}
+                        {selectedHelper.block}
+                      </span>
+                      <button
+                        type="button"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--green-dark)",
+                        }}
+                        onClick={() => {
+                          setSelectedHelper(null);
+                          setHelperSearch("");
+                          setPatientForm((f) => ({ ...f, helperId: "" }));
+                          setShowHelperDrop(true);
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                  }}
+                >
                   <div className="form-group">
                     <label className="form-label">Patient Name *</label>
-                    <input className="form-input" required value={patientForm.name} onChange={e => setPatientForm({...patientForm, name: e.target.value})} placeholder="Full name" />
+                    <input
+                      className="form-input"
+                      required
+                      value={patientForm.name}
+                      onChange={(e) =>
+                        setPatientForm({ ...patientForm, name: e.target.value })
+                      }
+                      placeholder="Full name"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Mobile *</label>
-                    <input className="form-input" required value={patientForm.mobile} onChange={e => setPatientForm({...patientForm, mobile: e.target.value})} placeholder="10-digit" />
+                    <input
+                      className="form-input"
+                      required
+                      value={patientForm.mobile}
+                      onChange={(e) =>
+                        setPatientForm({
+                          ...patientForm,
+                          mobile: e.target.value,
+                        })
+                      }
+                      placeholder="10-digit"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">IPD No. *</label>
-                    <input className="form-input" required value={patientForm.ipdNo} onChange={e => setPatientForm({...patientForm, ipdNo: e.target.value})} placeholder="IPD number" />
+                    <input
+                      className="form-input"
+                      required
+                      value={patientForm.ipdNo}
+                      onChange={(e) =>
+                        setPatientForm({
+                          ...patientForm,
+                          ipdNo: e.target.value,
+                        })
+                      }
+                      placeholder="IPD number"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Date of Admission *</label>
-                    <input className="form-input" type="date" required value={patientForm.doa} onChange={e => setPatientForm({...patientForm, doa: e.target.value})} />
+                    <input
+                      className="form-input"
+                      type="date"
+                      required
+                      value={patientForm.doa}
+                      onChange={(e) =>
+                        setPatientForm({ ...patientForm, doa: e.target.value })
+                      }
+                    />
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Incentive Amount (₹)</label>
-                  <input className="form-input" type="number" min="0" required value={patientForm.incentiveAmount} onChange={e => setPatientForm({...patientForm, incentiveAmount: e.target.value})} />
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    required
+                    value={patientForm.incentiveAmount}
+                    onChange={(e) =>
+                      setPatientForm({
+                        ...patientForm,
+                        incentiveAmount: e.target.value,
+                      })
+                    }
+                  />
                 </div>
                 <PatientExtraFields
-                  pincode={patientForm.pincode} aadharNumber={patientForm.aadharNumber} swasthaSathNumber={patientForm.swasthaSathNumber}
-                  onChange={(field, value) => setPatientForm(f => ({...f, [field]: value}))} />
+                  pincode={patientForm.pincode}
+                  aadharNumber={patientForm.aadharNumber}
+                  swasthaSathNumber={patientForm.swasthaSathNumber}
+                  onChange={(field, value) =>
+                    setPatientForm((f) => ({ ...f, [field]: value }))
+                  }
+                />
                 <PatientAddressSelect value={address} onChange={setAddress} />
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowPatientForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={patientLoading || !patientForm.helperId}>{patientLoading ? "Saving..." : editPatient ? "Update" : "Add Patient"}</button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowPatientForm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={patientLoading || !patientForm.helperId}
+                >
+                  {patientLoading
+                    ? "Saving..."
+                    : editPatient
+                      ? "Update"
+                      : "Add Patient"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {paymentPatient && <PaymentModal patient={paymentPatient} onClose={() => setPaymentPatient(null)} onSave={loadPatients} />}
+      {paymentPatient && (
+        <PaymentModal
+          patient={paymentPatient}
+          onClose={() => setPaymentPatient(null)}
+          onSave={loadPatients}
+        />
+      )}
     </div>
   );
 }
