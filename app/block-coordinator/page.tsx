@@ -101,7 +101,6 @@ export default function BCPanel() {
   >("patients");
   const [defaultAmount, setDefaultAmount] = useState(200);
 
-  // Helpers state
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [showHelperForm, setShowHelperForm] = useState(false);
   const [helperForm, setHelperForm] = useState(EMPTY_HELPER);
@@ -115,7 +114,6 @@ export default function BCPanel() {
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperError, setHelperError] = useState("");
 
-  // Patients state
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filterHelper, setFilterHelper] = useState("");
   const [showPatientForm, setShowPatientForm] = useState(false);
@@ -129,6 +127,19 @@ export default function BCPanel() {
   const [patientLoading, setPatientLoading] = useState(false);
   const [patientError, setPatientError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Search + Sort — Patients
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientSortKey, setPatientSortKey] = useState<
+    "name" | "ipdNo" | "doa"
+  >("doa");
+  const [patientSortDir, setPatientSortDir] = useState<"asc" | "desc">("desc");
+
+  // Search + Sort — Helpers
+  const [helperTableSearch, setHelperTableSearch] = useState("");
+  const [helperSortKey, setHelperSortKey] = useState<"name" | "block">("name");
+  const [helperSortDir, setHelperSortDir] = useState<"asc" | "desc">("asc");
+
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,7 +165,6 @@ export default function BCPanel() {
   useEffect(() => {
     if (bc) loadHelpers();
   }, [bc]);
-
   useEffect(() => {
     loadPatients();
   }, [selYear, selMonth]);
@@ -170,7 +180,6 @@ export default function BCPanel() {
     const data = await fetch(`/api/patients?month=${selYear}-${selMonth}`).then(
       (r) => r.json(),
     );
-    // Filter to only this BC's helpers
     const myHelperIds = helpers.map((h) => h._id);
     const filtered = Array.isArray(data)
       ? data.filter((p: Patient) =>
@@ -180,7 +189,6 @@ export default function BCPanel() {
     setPatients(filtered);
   }
 
-  // Block data for helper form
   const blockData = bc
     ? locations
         .find((sd) => sd.name === bc.subDivision)
@@ -319,9 +327,6 @@ export default function BCPanel() {
     setShowPatientForm(true);
   }
 
-  const displayPatients = filterHelper
-    ? patients.filter((p) => (p.helperId?._id || p.helperId) === filterHelper)
-    : patients;
   const checkStyle = (active: boolean): React.CSSProperties => ({
     display: "inline-flex",
     alignItems: "center",
@@ -334,6 +339,126 @@ export default function BCPanel() {
     fontSize: 13,
     userSelect: "none",
   });
+
+  function togglePatientSort(key: typeof patientSortKey) {
+    if (patientSortKey === key)
+      setPatientSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setPatientSortKey(key);
+      setPatientSortDir("asc");
+    }
+  }
+  const PatientSortTh = ({
+    label,
+    k,
+  }: {
+    label: string;
+    k: typeof patientSortKey;
+  }) => (
+    <th
+      onClick={() => togglePatientSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {patientSortKey === k ? (
+        patientSortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
+  );
+
+  function toggleHelperSort(key: typeof helperSortKey) {
+    if (helperSortKey === key)
+      setHelperSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setHelperSortKey(key);
+      setHelperSortDir("asc");
+    }
+  }
+  const HelperSortTh = ({
+    label,
+    k,
+  }: {
+    label: string;
+    k: typeof helperSortKey;
+  }) => (
+    <th
+      onClick={() => toggleHelperSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {helperSortKey === k ? (
+        helperSortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
+  );
+
+  const pq = patientSearch.toLowerCase();
+  const displayPatients = patients
+    .filter(
+      (p) =>
+        !filterHelper ||
+        (p.helperId as any)?._id === filterHelper ||
+        p.helperId === filterHelper,
+    )
+    .filter(
+      (p) =>
+        !pq ||
+        p.name.toLowerCase().includes(pq) ||
+        p.mobile.includes(pq) ||
+        p.ipdNo.toLowerCase().includes(pq) ||
+        (p.helperId as any)?.name?.toLowerCase().includes(pq),
+    )
+    .sort((a, b) => {
+      const va =
+        patientSortKey === "doa"
+          ? new Date(a.doa).getTime()
+          : (a[patientSortKey] || "").toLowerCase();
+      const vb =
+        patientSortKey === "doa"
+          ? new Date(b.doa).getTime()
+          : (b[patientSortKey] || "").toLowerCase();
+      return patientSortDir === "asc"
+        ? va < vb
+          ? -1
+          : va > vb
+            ? 1
+            : 0
+        : va > vb
+          ? -1
+          : va < vb
+            ? 1
+            : 0;
+    });
+
+  const hq = helperTableSearch.toLowerCase();
+  const displayHelpers = helpers
+    .filter(
+      (h) =>
+        !hq ||
+        h.name.toLowerCase().includes(hq) ||
+        h.block.toLowerCase().includes(hq) ||
+        (h.helperId || "").toLowerCase().includes(hq) ||
+        h.phone.includes(hq),
+    )
+    .sort((a, b) => {
+      const va = (a[helperSortKey] || "").toLowerCase();
+      const vb = (b[helperSortKey] || "").toLowerCase();
+      return helperSortDir === "asc"
+        ? va.localeCompare(vb)
+        : vb.localeCompare(va);
+    });
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -490,14 +615,24 @@ export default function BCPanel() {
                   ))}
                 </select>
               </div>
+              <div className="form-group">
+                <label className="form-label">Search</label>
+                <input
+                  className="form-input"
+                  placeholder="Name, mobile, IPD..."
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  style={{ width: 190, fontSize: 13 }}
+                />
+              </div>
             </div>
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>Patient</th>
-                    <th>IPD</th>
-                    <th>DOA</th>
+                    <PatientSortTh label="Patient" k="name" />
+                    <PatientSortTh label="IPD" k="ipdNo" />
+                    <PatientSortTh label="DOA" k="doa" />
                     <th>Helper</th>
                     <th>Address</th>
                     <th>₹</th>
@@ -510,7 +645,11 @@ export default function BCPanel() {
                     <tr>
                       <td colSpan={8}>
                         <div className="empty-state" style={{ padding: 24 }}>
-                          <p>No patients found.</p>
+                          <p>
+                            {patientSearch || filterHelper
+                              ? "No results found."
+                              : "No patients found."}
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -583,73 +722,90 @@ export default function BCPanel() {
 
         {/* HELPERS TAB */}
         {activeTab === "helpers" && (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Swasthya Bondhu ID</th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Block</th>
-                  <th>GP / Municipality</th>
-                  <th>Tag</th>
-                </tr>
-              </thead>
-              <tbody>
-                {helpers.length === 0 ? (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <input
+                className="form-input"
+                placeholder="🔍 Search by name, ID, phone, block..."
+                value={helperTableSearch}
+                onChange={(e) => setHelperTableSearch(e.target.value)}
+                style={{ maxWidth: 360, fontSize: 13 }}
+              />
+            </div>
+            <div className="table-wrapper">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={6}>
-                      <div className="empty-state" style={{ padding: 24 }}>
-                        <p>No Swasthya Bondhu added yet.</p>
-                      </div>
-                    </td>
+                    <th>SB ID</th>
+                    <HelperSortTh label="Name" k="name" />
+                    <th>Phone</th>
+                    <HelperSortTh label="Block" k="block" />
+                    <th>GP / Municipality</th>
+                    <th>Tag</th>
                   </tr>
-                ) : (
-                  helpers.map((h) => (
-                    <tr key={h._id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                        {h.helperId || "—"}
-                      </td>
-                      <td style={{ fontWeight: 500 }}>{h.name}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                        {h.phone}
-                      </td>
-                      <td style={{ fontSize: 12 }}>{h.block}</td>
-                      <td style={{ fontSize: 11 }}>
-                        {h.gramPanchayats?.map((g) => (
-                          <div key={g.gpName}>
-                            🌿 {g.gpName}
-                            {g.villages.length > 0
-                              ? ` (${g.villages.length})`
-                              : ""}
-                          </div>
-                        ))}
-                        {h.municipalities?.map((m) => (
-                          <div key={m.municipalityName}>
-                            🏙 {m.municipalityName}
-                            {m.wards.length > 0 ? ` (${m.wards.length})` : ""}
-                          </div>
-                        ))}
-                      </td>
-                      <td>
-                        <span className="badge badge-green">{h.tag}</span>
+                </thead>
+                <tbody>
+                  {displayHelpers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="empty-state" style={{ padding: 24 }}>
+                          <p>
+                            {helperTableSearch
+                              ? "No results found."
+                              : "No Swasthya Bondhu added yet."}
+                          </p>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    displayHelpers.map((h) => (
+                      <tr key={h._id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                          {h.helperId || "—"}
+                        </td>
+                        <td style={{ fontWeight: 500 }}>{h.name}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                          {h.phone}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{h.block}</td>
+                        <td style={{ fontSize: 11 }}>
+                          {h.gramPanchayats?.map((g) => (
+                            <div key={g.gpName}>
+                              🌿 {g.gpName}
+                              {g.villages.length > 0
+                                ? ` (${g.villages.length})`
+                                : ""}
+                            </div>
+                          ))}
+                          {h.municipalities?.map((m) => (
+                            <div key={m.municipalityName}>
+                              🏙 {m.municipalityName}
+                              {m.wards.length > 0 ? ` (${m.wards.length})` : ""}
+                            </div>
+                          ))}
+                        </td>
+                        <td>
+                          <span className="badge badge-green">{h.tag}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Add Helper Modal — using shared component */}
+      {/* Add Helper Modal */}
       {showHelperForm && (
         <AddHelperModal
           onClose={() => setShowHelperForm(false)}
           onSave={() => {
             loadHelpers();
           }}
+          role="block-coordinator"
+          currentBCId={bc?._id}
         />
       )}
 

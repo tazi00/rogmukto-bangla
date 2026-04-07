@@ -38,6 +38,11 @@ export default function BlockCoordinatorsPage() {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<
+    "coordinatorId" | "name" | "subDivision"
+  >("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     load();
@@ -122,6 +127,48 @@ export default function BlockCoordinatorsPage() {
     load();
   }
 
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const SortTh = ({ label, k }: { label: string; k: typeof sortKey }) => (
+    <th
+      onClick={() => toggleSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {sortKey === k ? (
+        sortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
+  );
+
+  const q = search.toLowerCase();
+  const filteredList = list
+    .filter(
+      (bc) =>
+        !q ||
+        bc.name.toLowerCase().includes(q) ||
+        bc.coordinatorId.toLowerCase().includes(q) ||
+        bc.subDivision.toLowerCase().includes(q) ||
+        bc.phone.includes(q),
+    )
+    .sort((a, b) => {
+      const va = (a[sortKey] || "").toLowerCase();
+      const vb = (b[sortKey] || "").toLowerCase();
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+
   return (
     <>
       <div className="page-header">
@@ -131,31 +178,44 @@ export default function BlockCoordinatorsPage() {
         </button>
       </div>
       <div className="page-body">
+        <div style={{ marginBottom: 14 }}>
+          <input
+            className="form-input"
+            placeholder="🔍 Search by name, ID, phone, sub division..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ maxWidth: 400, fontSize: 13 }}
+          />
+        </div>
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Name</th>
+                <SortTh label="ID" k="coordinatorId" />
+                <SortTh label="Name" k="name" />
                 <th>Phone</th>
                 <th>Username</th>
-                <th>Sub Division</th>
+                <SortTh label="Sub Division" k="subDivision" />
                 <th>Blocks</th>
                 <th>Address</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {list.length === 0 ? (
+              {filteredList.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
                     <div className="empty-state">
-                      <p>No block coordinators yet.</p>
+                      <p>
+                        {search
+                          ? "No results found."
+                          : "No block coordinators yet."}
+                      </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                list.map((bc) => (
+                filteredList.map((bc) => (
                   <tr key={bc._id}>
                     <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                       {bc.coordinatorId}

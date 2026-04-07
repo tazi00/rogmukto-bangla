@@ -81,6 +81,10 @@ export default function HelpersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "block" | "subDivision">(
+    "name",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [creating, setCreating] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -383,11 +387,48 @@ export default function HelpersPage() {
     load();
   }
 
-  const filtered = helpers.filter(
-    (h) =>
-      h.name.toLowerCase().includes(search.toLowerCase()) ||
-      h.block?.toLowerCase().includes(search.toLowerCase()),
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+  const SortTh = ({ label, k }: { label: string; k: typeof sortKey }) => (
+    <th
+      onClick={() => toggleSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {sortKey === k ? (
+        sortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
   );
+
+  const q = search.toLowerCase();
+  const filtered = helpers
+    .filter(
+      (h) =>
+        !q ||
+        h.name.toLowerCase().includes(q) ||
+        h.block?.toLowerCase().includes(q) ||
+        h.subDivision?.toLowerCase().includes(q) ||
+        h.phone?.includes(q) ||
+        (h.helperId || "").toLowerCase().includes(q) ||
+        h.gramPanchayats?.some((g) => g.gpName.toLowerCase().includes(q)),
+    )
+    .sort((a, b) => {
+      const va = (a[sortKey] || "").toLowerCase();
+      const vb = (b[sortKey] || "").toLowerCase();
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
 
   return (
     <>
@@ -401,8 +442,8 @@ export default function HelpersPage() {
         <div style={{ marginBottom: 16 }}>
           <input
             className="form-input"
-            style={{ maxWidth: 300 }}
-            placeholder="Search by name, block..."
+            style={{ maxWidth: 380 }}
+            placeholder="🔍 Search by name, phone, ID, block, GP..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -411,11 +452,11 @@ export default function HelpersPage() {
           <table>
             <thead>
               <tr>
-                <th>Name</th>
+                <SortTh label="Name" k="name" />
                 <th>Phone</th>
                 <th>Block Coordinator</th>
-                <th>Sub Division</th>
-                <th>Block</th>
+                <SortTh label="Sub Division" k="subDivision" />
+                <SortTh label="Block" k="block" />
                 <th>GP / Municipality</th>
                 <th>Tag</th>
                 <th>Actions</th>
@@ -426,7 +467,11 @@ export default function HelpersPage() {
                 <tr>
                   <td colSpan={8}>
                     <div className="empty-state">
-                      <p>No Swasthya Bondhu found.</p>
+                      <p>
+                        {search
+                          ? "No results found."
+                          : "No Swasthya Bondhu found."}
+                      </p>
                     </div>
                   </td>
                 </tr>

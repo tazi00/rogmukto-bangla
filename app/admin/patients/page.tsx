@@ -92,6 +92,9 @@ export default function AdminPatientsPage() {
   const [showHelperDrop, setShowHelperDrop] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "ipdNo" | "doa">("doa");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -213,9 +216,63 @@ export default function AdminPatientsPage() {
     load();
   }
 
-  const displayPatients = filterHelper
-    ? patients.filter((p) => (p.helperId as any)?._id === filterHelper)
-    : patients;
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+  const SortTh = ({ label, k }: { label: string; k: typeof sortKey }) => (
+    <th
+      onClick={() => toggleSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {sortKey === k ? (
+        sortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
+  );
+
+  const q = patientSearch.toLowerCase();
+  const displayPatients = patients
+    .filter((p) => !filterHelper || (p.helperId as any)?._id === filterHelper)
+    .filter(
+      (p) =>
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.mobile.includes(q) ||
+        p.ipdNo.toLowerCase().includes(q) ||
+        (p.helperId as any)?.name?.toLowerCase().includes(q),
+    )
+    .sort((a, b) => {
+      const va =
+        sortKey === "doa"
+          ? new Date(a.doa).getTime()
+          : (a[sortKey] || "").toLowerCase();
+      const vb =
+        sortKey === "doa"
+          ? new Date(b.doa).getTime()
+          : (b[sortKey] || "").toLowerCase();
+      return sortDir === "asc"
+        ? va < vb
+          ? -1
+          : va > vb
+            ? 1
+            : 0
+        : va > vb
+          ? -1
+          : va < vb
+            ? 1
+            : 0;
+    });
 
   return (
     <>
@@ -308,16 +365,26 @@ export default function AdminPatientsPage() {
                 <option value="clearance">Clearance</option>
               </select>
             </div>
+            <div className="form-group">
+              <label className="form-label">Search</label>
+              <input
+                className="form-input"
+                placeholder="Name, mobile, IPD, SB..."
+                value={patientSearch}
+                onChange={(e) => setPatientSearch(e.target.value)}
+                style={{ width: 220, fontSize: 13 }}
+              />
+            </div>
           </div>
 
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Patient</th>
+                  <SortTh label="Patient" k="name" />
                   <th>Mobile</th>
-                  <th>IPD No.</th>
-                  <th>DOA</th>
+                  <SortTh label="IPD No." k="ipdNo" />
+                  <SortTh label="DOA" k="doa" />
                   <th>Swasthya Bondhu</th>
                   <th>Address</th>
                   <th>Incentive</th>
@@ -330,7 +397,11 @@ export default function AdminPatientsPage() {
                   <tr>
                     <td colSpan={9}>
                       <div className="empty-state">
-                        <p>No patients found.</p>
+                        <p>
+                          {patientSearch || filterHelper
+                            ? "No results found."
+                            : "No patients found."}
+                        </p>
                       </div>
                     </td>
                   </tr>
