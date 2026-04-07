@@ -509,6 +509,30 @@ export default function HelpersPage() {
               <div className="modal-body">
                 {error && <div className="alert alert-error">{error}</div>}
 
+                {/* 1. Swasthya Bondhu ID — first field, enabled for admin */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Swasthya Bondhu ID{" "}
+                    <span
+                      style={{
+                        fontWeight: 400,
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      (optional)
+                    </span>
+                  </label>
+                  <input
+                    className="form-input"
+                    value={form.helperId}
+                    onChange={(e) =>
+                      setForm({ ...form, helperId: e.target.value })
+                    }
+                    placeholder="e.g. SB-001"
+                  />
+                </div>
+
                 <div
                   style={{
                     display: "grid",
@@ -551,7 +575,7 @@ export default function HelpersPage() {
                   <label className="form-label">Block Coordinator *</label>
                   <input
                     className="form-input"
-                    placeholder="🔍 Search by name or ID..."
+                    placeholder="🔍 Search by ID, name, GP, or phone no..."
                     value={bcSearch}
                     autoComplete="off"
                     onFocus={() => setShowBCDrop(true)}
@@ -749,17 +773,66 @@ export default function HelpersPage() {
                 {selectedBC && selectedBlock && (
                   <>
                     <div className="form-group">
-                      <label className="form-label">Location Type * <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>(ek ya dono choose karo)</span></label>
+                      <label className="form-label">
+                        Location Type *{" "}
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          (ek ya dono choose karo)
+                        </span>
+                      </label>
                       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
                         <label
-                          onClick={() => { setUseGP(!useGP); if (useGP) { setSelectedGP(""); setSelectedVillages([]); } }}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", border: `2px solid ${useGP ? "var(--green-mid)" : "var(--border)"}`, borderRadius: "var(--radius-sm)", background: useGP ? "var(--green-light)" : "var(--surface)", cursor: "pointer", fontSize: 13, userSelect: "none" }}
+                          onClick={() => {
+                            setUseGP(!useGP);
+                            if (useGP) {
+                              setSelectedGP("");
+                              setSelectedVillages([]);
+                            }
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 14px",
+                            border: `2px solid ${useGP ? "var(--green-mid)" : "var(--border)"}`,
+                            borderRadius: "var(--radius-sm)",
+                            background: useGP
+                              ? "var(--green-light)"
+                              : "var(--surface)",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            userSelect: "none",
+                          }}
                         >
                           {useGP ? "✓ " : ""}🌿 Gram Panchayat
                         </label>
                         <label
-                          onClick={() => { setUseMun(!useMun); if (useMun) { setSelectedMun(""); setSelectedWards([]); } }}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", border: `2px solid ${useMun ? "var(--green-mid)" : "var(--border)"}`, borderRadius: "var(--radius-sm)", background: useMun ? "var(--green-light)" : "var(--surface)", cursor: "pointer", fontSize: 13, userSelect: "none" }}
+                          onClick={() => {
+                            setUseMun(!useMun);
+                            if (useMun) {
+                              setSelectedMun("");
+                              setSelectedWards([]);
+                            }
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 14px",
+                            border: `2px solid ${useMun ? "var(--green-mid)" : "var(--border)"}`,
+                            borderRadius: "var(--radius-sm)",
+                            background: useMun
+                              ? "var(--green-light)"
+                              : "var(--surface)",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            userSelect: "none",
+                          }}
                         >
                           {useMun ? "✓ " : ""}🏙 Municipality
                         </label>
@@ -967,28 +1040,6 @@ export default function HelpersPage() {
                 )}
 
                 <div className="form-group">
-                  <div className="form-group">
-                    <label className="form-label">
-                      Swasthya Bondhu ID{" "}
-                      <span
-                        style={{
-                          fontWeight: 400,
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        (optional)
-                      </span>
-                    </label>
-                    <input
-                      className="form-input"
-                      value={form.helperId}
-                      onChange={(e) =>
-                        setForm({ ...form, helperId: e.target.value })
-                      }
-                      placeholder="e.g. SB-001"
-                    />
-                  </div>
                   <label className="form-label">Tag</label>
                   <SearchableSelect
                     options={[

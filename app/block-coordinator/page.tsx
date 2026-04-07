@@ -2,45 +2,103 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentModal from "@/components/PaymentModal";
-import PatientAddressSelect, { AddressValue, EMPTY_ADDRESS } from "@/components/PatientAddressSelect";
+import PatientAddressSelect, {
+  AddressValue,
+  EMPTY_ADDRESS,
+} from "@/components/PatientAddressSelect";
 import DischargePanel from "@/components/DischargePanel";
 import AddHelperModal from "@/components/AddHelperModal";
 import PatientExtraFields from "@/components/PatientExtraFields";
 import SearchableSelect from "@/components/SearchableSelect";
 import MultiSearchSelect from "@/components/MultiSearchSelect";
 
-interface BC { _id: string; coordinatorId: string; name: string; subDivision: string; blocks: string[] }
+interface BC {
+  _id: string;
+  coordinatorId: string;
+  name: string;
+  subDivision: string;
+  blocks: string[];
+}
 interface Helper {
-  _id: string; helperId: string; name: string; phone: string;
-  subDivision: string; block: string;
+  _id: string;
+  helperId: string;
+  name: string;
+  phone: string;
+  subDivision: string;
+  block: string;
   gramPanchayats: { gpName: string; villages: string[] }[];
   municipalities: { municipalityName: string; wards: string[] }[];
   tag: string;
 }
 interface Patient {
-  _id: string; name: string; mobile: string; ipdNo: string; doa: string;
-  incentiveAmount: number; paymentStatus: string; paymentDetail?: any; address?: any;
-  helperId: any; dischargeStatus: string;
+  _id: string;
+  name: string;
+  mobile: string;
+  ipdNo: string;
+  doa: string;
+  incentiveAmount: number;
+  paymentStatus: string;
+  paymentDetail?: any;
+  address?: any;
+  helperId: any;
+  dischargeStatus: string;
 }
-interface SubDiv { _id: string; name: string; blocks: { _id: string; name: string; gramPanchayats: any[]; municipalities: any[] }[] }
+interface SubDiv {
+  _id: string;
+  name: string;
+  blocks: {
+    _id: string;
+    name: string;
+    gramPanchayats: any[];
+    municipalities: any[];
+  }[];
+}
 
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const MONTHS = [
-  { val: "01", label: "January" }, { val: "02", label: "February" }, { val: "03", label: "March" },
-  { val: "04", label: "April" }, { val: "05", label: "May" }, { val: "06", label: "June" },
-  { val: "07", label: "July" }, { val: "08", label: "August" }, { val: "09", label: "September" },
-  { val: "10", label: "October" }, { val: "11", label: "November" }, { val: "12", label: "December" },
+  { val: "01", label: "January" },
+  { val: "02", label: "February" },
+  { val: "03", label: "March" },
+  { val: "04", label: "April" },
+  { val: "05", label: "May" },
+  { val: "06", label: "June" },
+  { val: "07", label: "July" },
+  { val: "08", label: "August" },
+  { val: "09", label: "September" },
+  { val: "10", label: "October" },
+  { val: "11", label: "November" },
+  { val: "12", label: "December" },
 ];
-const EMPTY_PATIENT = { name: "", mobile: "", ipdNo: "", doa: "", helperId: "", incentiveAmount: "", pincode: "", aadharNumber: "", swasthaSathNumber: "" };
-const EMPTY_HELPER = { helperId: "", name: "", phone: "", block: "", tag: "Swasthya Bondhu" };
+const EMPTY_PATIENT = {
+  name: "",
+  mobile: "",
+  ipdNo: "",
+  doa: "",
+  helperId: "",
+  incentiveAmount: "",
+  pincode: "",
+  aadharNumber: "",
+  swasthaSathNumber: "",
+};
+const EMPTY_HELPER = {
+  helperId: "",
+  name: "",
+  phone: "",
+  block: "",
+  tag: "Swasthya Bondhu",
+};
 
 export default function BCPanel() {
   const router = useRouter();
   const now = new Date();
   const [bc, setBc] = useState<BC | null>(null);
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
-  const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
-  const [activeTab, setActiveTab] = useState<"patients" | "discharge" | "helpers">("patients");
+  const [selMonth, setSelMonth] = useState(
+    String(now.getMonth() + 1).padStart(2, "0"),
+  );
+  const [activeTab, setActiveTab] = useState<
+    "patients" | "discharge" | "helpers"
+  >("patients");
   const [defaultAmount, setDefaultAmount] = useState(200);
 
   // Helpers state
@@ -74,13 +132,20 @@ export default function BCPanel() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/api/block-coordinators").then(r => r.json()).then(d => {
-      if (Array.isArray(d) && d.length > 0) setBc(d[0]);
-    });
-    fetch("/api/settings").then(r => r.json()).then(d => setDefaultAmount(d.defaultIncentiveAmount || 200));
-    fetch("/api/locations").then(r => r.json()).then(d => setLocations(Array.isArray(d) ? d : []));
+    fetch("/api/block-coordinators")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d) && d.length > 0) setBc(d[0]);
+      });
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setDefaultAmount(d.defaultIncentiveAmount || 200));
+    fetch("/api/locations")
+      .then((r) => r.json())
+      .then((d) => setLocations(Array.isArray(d) ? d : []));
     function handleClick(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setShowHelperDrop(false);
+      if (dropRef.current && !dropRef.current.contains(e.target as Node))
+        setShowHelperDrop(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -90,93 +155,184 @@ export default function BCPanel() {
     if (bc) loadHelpers();
   }, [bc]);
 
-  useEffect(() => { loadPatients(); }, [selYear, selMonth]);
+  useEffect(() => {
+    loadPatients();
+  }, [selYear, selMonth]);
 
   async function loadHelpers() {
-    const data = await fetch(`/api/helpers?blockCoordinatorId=${bc?._id}`).then(r => r.json());
+    const data = await fetch(`/api/helpers?blockCoordinatorId=${bc?._id}`).then(
+      (r) => r.json(),
+    );
     setHelpers(Array.isArray(data) ? data : []);
   }
 
   async function loadPatients() {
-    const data = await fetch(`/api/patients?month=${selYear}-${selMonth}`).then(r => r.json());
+    const data = await fetch(`/api/patients?month=${selYear}-${selMonth}`).then(
+      (r) => r.json(),
+    );
     // Filter to only this BC's helpers
-    const myHelperIds = helpers.map(h => h._id);
-    const filtered = Array.isArray(data) ? data.filter((p: Patient) => myHelperIds.includes(p.helperId?._id || p.helperId)) : [];
+    const myHelperIds = helpers.map((h) => h._id);
+    const filtered = Array.isArray(data)
+      ? data.filter((p: Patient) =>
+          myHelperIds.includes(p.helperId?._id || p.helperId),
+        )
+      : [];
     setPatients(filtered);
   }
 
   // Block data for helper form
-  const blockData = bc ? locations.find(sd => sd.name === bc.subDivision)?.blocks.find(b => b.name === helperForm.block) : null;
+  const blockData = bc
+    ? locations
+        .find((sd) => sd.name === bc.subDivision)
+        ?.blocks.find((b) => b.name === helperForm.block)
+    : null;
 
   async function handleHelperSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!bc) return;
-    if (!helperForm.block) { setHelperError("Select a block"); return; }
-    if (!useGP && !useMun) { setHelperError("Select GP or Municipality"); return; }
-    setHelperLoading(true); setHelperError("");
+    if (!helperForm.block) {
+      setHelperError("Select a block");
+      return;
+    }
+    if (!useGP && !useMun) {
+      setHelperError("Select GP or Municipality");
+      return;
+    }
+    setHelperLoading(true);
+    setHelperError("");
     try {
       const body = {
         ...helperForm,
         blockCoordinatorId: bc._id,
         subDivision: bc.subDivision,
-        gramPanchayats: useGP && selectedGP ? [{ gpName: selectedGP, villages: selectedVillages }] : [],
-        municipalities: useMun && selectedMun ? [{ municipalityName: selectedMun, wards: selectedWards }] : [],
+        gramPanchayats:
+          useGP && selectedGP
+            ? [{ gpName: selectedGP, villages: selectedVillages }]
+            : [],
+        municipalities:
+          useMun && selectedMun
+            ? [{ municipalityName: selectedMun, wards: selectedWards }]
+            : [],
       };
-      const res = await fetch("/api/helpers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res.ok) { const d = await res.json(); setHelperError(d.error || "Failed"); return; }
-      setShowHelperForm(false); setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGP(""); setSelectedVillages([]); setSelectedMun(""); setSelectedWards([]);
+      const res = await fetch("/api/helpers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setHelperError(d.error || "Failed");
+        return;
+      }
+      setShowHelperForm(false);
+      setHelperForm(EMPTY_HELPER);
+      setUseGP(false);
+      setUseMun(false);
+      setSelectedGP("");
+      setSelectedVillages([]);
+      setSelectedMun("");
+      setSelectedWards([]);
       loadHelpers();
-    } catch { setHelperError("Something went wrong"); }
-    finally { setHelperLoading(false); }
+    } catch {
+      setHelperError("Something went wrong");
+    } finally {
+      setHelperLoading(false);
+    }
   }
 
-
-
-  const filteredHelpers = helpers.filter(h => {
+  const filteredHelpers = helpers.filter((h) => {
     if (!helperSearch) return true;
     const q = helperSearch.toLowerCase();
-    return h.name.toLowerCase().includes(q) || h.phone.includes(q) ||
-      h.block.toLowerCase().includes(q) || h.helperId?.toLowerCase().includes(q) ||
-      h.gramPanchayats?.some(g => g.gpName.toLowerCase().includes(q));
+    return (
+      h.name.toLowerCase().includes(q) ||
+      h.phone.includes(q) ||
+      h.block.toLowerCase().includes(q) ||
+      h.helperId?.toLowerCase().includes(q) ||
+      h.gramPanchayats?.some((g) => g.gpName.toLowerCase().includes(q))
+    );
   });
 
   async function handlePatientSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!patientForm.helperId) { setPatientError("Select a Swasthya Bondhu"); return; }
-    setPatientLoading(true); setPatientError(""); setSuccess("");
+    if (!patientForm.helperId) {
+      setPatientError("Select a Swasthya Bondhu");
+      return;
+    }
+    setPatientLoading(true);
+    setPatientError("");
+    setSuccess("");
     try {
-      const body = { ...patientForm, incentiveAmount: Number(patientForm.incentiveAmount), address };
-      const url = editPatient ? `/api/patients?id=${editPatient._id}` : "/api/patients";
+      const body = {
+        ...patientForm,
+        incentiveAmount: Number(patientForm.incentiveAmount) || defaultAmount,
+        address,
+      };
+      const url = editPatient
+        ? `/api/patients?id=${editPatient._id}`
+        : "/api/patients";
       const method = editPatient ? "PUT" : "POST";
-      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res.ok) { const d = await res.json(); setPatientError(d.error || "Failed"); return; }
-      setSuccess(editPatient ? "Updated!" : "Patient added!"); setShowPatientForm(false); loadPatients();
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setPatientError(d.error || "Failed");
+        return;
+      }
+      setSuccess(editPatient ? "Updated!" : "Patient added!");
+      setShowPatientForm(false);
+      loadPatients();
       setTimeout(() => setSuccess(""), 2500);
-    } catch { setPatientError("Something went wrong"); }
-    finally { setPatientLoading(false); }
+    } catch {
+      setPatientError("Something went wrong");
+    } finally {
+      setPatientLoading(false);
+    }
   }
 
   async function deletePatient(id: string) {
     if (!confirm("Delete this patient?")) return;
-    await fetch(`/api/patients?id=${id}`, { method: "DELETE" }); loadPatients();
+    await fetch(`/api/patients?id=${id}`, { method: "DELETE" });
+    loadPatients();
   }
 
   function openEditPatient(p: Patient) {
     setEditPatient(p);
-    const h = helpers.find(h => h._id === (p.helperId?._id || p.helperId));
-    setSelectedHelper(h || null); setHelperSearch(h?.name || "");
-    setPatientForm({ name: p.name, mobile: p.mobile, ipdNo: p.ipdNo, doa: p.doa?.slice(0, 10) || "",
-      helperId: p.helperId?._id || p.helperId, incentiveAmount: String(p.incentiveAmount),
-      pincode: p.address?.pincode || "", aadharNumber: (p as any).aadharNumber || "", swasthaSathNumber: (p as any).swasthaSathNumber || "" });
-    setAddress(p.address || EMPTY_ADDRESS); setPatientError(""); setShowPatientForm(true);
+    const h = helpers.find((h) => h._id === (p.helperId?._id || p.helperId));
+    setSelectedHelper(h || null);
+    setHelperSearch(h?.name || "");
+    setPatientForm({
+      name: p.name,
+      mobile: p.mobile,
+      ipdNo: p.ipdNo,
+      doa: p.doa?.slice(0, 10) || "",
+      helperId: p.helperId?._id || p.helperId,
+      incentiveAmount: String(p.incentiveAmount),
+      pincode: p.address?.pincode || "",
+      aadharNumber: (p as any).aadharNumber || "",
+      swasthaSathNumber: (p as any).swasthaSathNumber || "",
+    });
+    setAddress(p.address || EMPTY_ADDRESS);
+    setPatientError("");
+    setShowPatientForm(true);
   }
 
-  const displayPatients = filterHelper ? patients.filter(p => (p.helperId?._id || p.helperId) === filterHelper) : patients;
+  const displayPatients = filterHelper
+    ? patients.filter((p) => (p.helperId?._id || p.helperId) === filterHelper)
+    : patients;
   const checkStyle = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 14px",
     border: `2px solid ${active ? "var(--green-mid)" : "var(--border)"}`,
-    borderRadius: "var(--radius-sm)", background: active ? "var(--green-light)" : "var(--surface)",
-    cursor: "pointer", fontSize: 13, userSelect: "none",
+    borderRadius: "var(--radius-sm)",
+    background: active ? "var(--green-light)" : "var(--surface)",
+    cursor: "pointer",
+    fontSize: 13,
+    userSelect: "none",
   });
 
   return (
@@ -256,25 +412,6 @@ export default function BCPanel() {
               👥 Swasthya Bondhu
             </button>
           </div>
-          {activeTab === "patients" && (
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setEditPatient(null);
-                setPatientForm({
-                  ...EMPTY_PATIENT,
-                  incentiveAmount: String(defaultAmount),
-                });
-                setAddress(EMPTY_ADDRESS);
-                setSelectedHelper(null);
-                setHelperSearch("");
-                setPatientError("");
-                setShowPatientForm(true);
-              }}
-            >
-              + Add Patient
-            </button>
-          )}
           {activeTab === "helpers" && (
             <button
               className="btn btn-primary"
@@ -427,18 +564,6 @@ export default function BCPanel() {
                               onClick={() => setPaymentPatient(p)}
                             >
                               ₹
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => openEditPatient(p)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => deletePatient(p._id)}
-                            >
-                              Del
                             </button>
                           </div>
                         </td>
@@ -743,22 +868,6 @@ export default function BCPanel() {
                       }
                     />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Incentive Amount (₹)</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    min="0"
-                    required
-                    value={patientForm.incentiveAmount}
-                    onChange={(e) =>
-                      setPatientForm({
-                        ...patientForm,
-                        incentiveAmount: e.target.value,
-                      })
-                    }
-                  />
                 </div>
                 <PatientExtraFields
                   pincode={patientForm.pincode}
