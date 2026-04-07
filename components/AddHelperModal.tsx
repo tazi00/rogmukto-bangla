@@ -21,11 +21,12 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
   const [showBCDrop, setShowBCDrop] = useState(false)
   const [selectedSDId, setSelectedSDId] = useState('')
   const [selectedBlock, setSelectedBlock] = useState('')
-  const [locationType, setLocationType] = useState<'gp' | 'municipality' | ''>('')
-  // GP — single select, villages — multiple
+  // GP — checkbox, single GP, multiple villages
+  const [useGP, setUseGP] = useState(false)
   const [selectedGP, setSelectedGP] = useState('')
   const [selectedVillages, setSelectedVillages] = useState<string[]>([])
-  // Municipality — single select, wards — multiple
+  // Municipality — checkbox, single mun, multiple wards
+  const [useMun, setUseMun] = useState(false)
   const [selectedMun, setSelectedMun] = useState('')
   const [selectedWards, setSelectedWards] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
@@ -92,7 +93,7 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
     if (block) {
       await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'gp', name, subDivisionId: selectedSDId, blockId: block._id }) })
       await reloadLocations()
-      setSelectedGP(name); setSelectedVillages([]) // auto-select the new GP
+      setSelectedGP(name); setSelectedVillages([])
     }
     setCreating(false)
   }
@@ -105,7 +106,7 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
     if (block) {
       await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'municipality', name, subDivisionId: selectedSDId, blockId: block._id }) })
       await reloadLocations()
-      setSelectedMun(name); setSelectedWards([]) // auto-select the new municipality
+      setSelectedMun(name); setSelectedWards([])
     }
     setCreating(false)
   }
@@ -143,12 +144,8 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
     const sd = locations.find(s => s.name === bc.subDivision)
     setSelectedSDId(sd?._id || '')
     setSelectedBlock(bc.blocks.length === 1 ? bc.blocks[0] : '')
-    setSelectedGP(''); setSelectedMun(''); setSelectedVillages([]); setSelectedWards([])
-  }
-
-  function changeLocationType(type: 'gp' | 'municipality') {
-    setLocationType(type === locationType ? '' : type)
-    setSelectedGP(''); setSelectedMun(''); setSelectedVillages([]); setSelectedWards([])
+    setUseGP(false); setSelectedGP(''); setSelectedVillages([])
+    setUseMun(false); setSelectedMun(''); setSelectedWards([])
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -156,9 +153,9 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
     if (!selectedBC) { setError('Select a Block Coordinator'); return }
     if (!selectedSDId) { setError('Select a Sub Division'); return }
     if (!selectedBlock) { setError('Select a Block'); return }
-    if (!locationType) { setError('Select GP or Municipality'); return }
-    if (locationType === 'gp' && !selectedGP) { setError('Select a Gram Panchayat'); return }
-    if (locationType === 'municipality' && !selectedMun) { setError('Select a Municipality'); return }
+    if (!useGP && !useMun) { setError('Select at least GP or Municipality'); return }
+    if (useGP && !selectedGP) { setError('Select a Gram Panchayat'); return }
+    if (useMun && !selectedMun) { setError('Select a Municipality'); return }
     setLoading(true); setError('')
     try {
       const body = {
@@ -166,8 +163,8 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
         blockCoordinatorId: selectedBC._id,
         subDivision: selectedSD?.name || '',
         block: selectedBlock,
-        gramPanchayats: locationType === 'gp' ? [{ gpName: selectedGP, villages: selectedVillages }] : [],
-        municipalities: locationType === 'municipality' ? [{ municipalityName: selectedMun, wards: selectedWards }] : [],
+        gramPanchayats: useGP && selectedGP ? [{ gpName: selectedGP, villages: selectedVillages }] : [],
+        municipalities: useMun && selectedMun ? [{ municipalityName: selectedMun, wards: selectedWards }] : [],
       }
       const res = await fetch('/api/helpers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return }
@@ -258,31 +255,29 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
               </div>
             )}
 
-            {/* Location Type */}
+            {/* Location Type — BOTH can be selected */}
             {selectedBC && selectedSDId && selectedBlock && (
               <>
                 <div className="form-group">
-                  <label className="form-label">Location Type *</label>
+                  <label className="form-label">Location Type * <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-muted)' }}>(ek ya dono choose karo)</span></label>
                   <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                    <label style={checkStyle(locationType === 'gp')} onClick={() => changeLocationType('gp')}>
-                      {locationType === 'gp' ? '✓ ' : ''}🌿 Gram Panchayat
+                    <label style={checkStyle(useGP)} onClick={() => { setUseGP(!useGP); if (useGP) { setSelectedGP(''); setSelectedVillages([]) } }}>
+                      {useGP ? '✓ ' : ''}🌿 Gram Panchayat
                     </label>
-                    <label style={checkStyle(locationType === 'municipality')} onClick={() => changeLocationType('municipality')}>
-                      {locationType === 'municipality' ? '✓ ' : ''}🏙 Municipality
+                    <label style={checkStyle(useMun)} onClick={() => { setUseMun(!useMun); if (useMun) { setSelectedMun(''); setSelectedWards([]) } }}>
+                      {useMun ? '✓ ' : ''}🏙 Municipality
                     </label>
                   </div>
                 </div>
 
-                {/* GP — single select */}
-                {locationType === 'gp' && (
+                {/* GP Section */}
+                {useGP && (
                   <div className="form-group">
                     <CreatableSearchSelect label="Gram Panchayat *"
                       options={gpOptions} value={selectedGP}
                       onChange={v => { setSelectedGP(v); setSelectedVillages([]) }}
                       onCreateOption={createGP} creating={creating}
                       placeholder="Search or add Gram Panchayat..." />
-
-                    {/* Villages — multiple */}
                     {selectedGP && (
                       <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '3px solid var(--green-light)' }}>
                         <label className="form-label" style={{ marginBottom: 6 }}>🌿 {selectedGP} — Villages</label>
@@ -306,16 +301,14 @@ export default function AddHelperModal({ onClose, onSave }: Props) {
                   </div>
                 )}
 
-                {/* Municipality — single select */}
-                {locationType === 'municipality' && (
+                {/* Municipality Section */}
+                {useMun && (
                   <div className="form-group">
                     <CreatableSearchSelect label="Municipality *"
                       options={munOptions} value={selectedMun}
                       onChange={v => { setSelectedMun(v); setSelectedWards([]) }}
                       onCreateOption={createMun} creating={creating}
                       placeholder="Search or add Municipality..." />
-
-                    {/* Wards — multiple */}
                     {selectedMun && (
                       <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '3px solid #d0d8ff' }}>
                         <label className="form-label" style={{ marginBottom: 6 }}>🏙 {selectedMun} — Wards</label>

@@ -72,11 +72,10 @@ export default function HelpersPage() {
   const [showBCDrop, setShowBCDrop] = useState(false);
   const [selectedSDId, setSelectedSDId] = useState("");
   const [selectedBlock, setSelectedBlock] = useState("");
-  const [locationType, setLocationType] = useState<"gp" | "municipality" | "">(
-    "",
-  );
+  const [useGP, setUseGP] = useState(false);
   const [selectedGP, setSelectedGP] = useState("");
   const [selectedVillages, setSelectedVillages] = useState<string[]>([]);
+  const [useMun, setUseMun] = useState(false);
   const [selectedMun, setSelectedMun] = useState("");
   const [selectedWards, setSelectedWards] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,9 +115,10 @@ export default function HelpersPage() {
     setBcSearch("");
     setSelectedSDId("");
     setSelectedBlock("");
-    setLocationType("");
+    setUseGP(false);
     setSelectedGP("");
     setSelectedVillages([]);
+    setUseMun(false);
     setSelectedMun("");
     setSelectedWards([]);
     setError("");
@@ -141,15 +141,10 @@ export default function HelpersPage() {
     setSelectedBC(bc || null);
     setBcSearch(bc?.name || h.blockCoordinatorId?.name || "");
     setSelectedBlock(h.block);
-    const lt =
-      h.gramPanchayats.length > 0
-        ? "gp"
-        : h.municipalities.length > 0
-          ? "municipality"
-          : "";
-    setLocationType(lt as any);
+    setUseGP(h.gramPanchayats.length > 0);
     setSelectedGP(h.gramPanchayats[0]?.gpName || "");
     setSelectedVillages(h.gramPanchayats[0]?.villages || []);
+    setUseMun(h.municipalities.length > 0);
     setSelectedMun(h.municipalities[0]?.municipalityName || "");
     setSelectedWards(h.municipalities[0]?.wards || []);
     setError("");
@@ -171,8 +166,10 @@ export default function HelpersPage() {
     const sd = locations.find((s) => s.name === bc.subDivision);
     setSelectedSDId(sd?._id || "");
     setSelectedBlock(bc.blocks.length === 1 ? bc.blocks[0] : "");
+    setUseGP(false);
     setSelectedGP("");
     setSelectedVillages([]);
+    setUseMun(false);
     setSelectedMun("");
     setSelectedWards([]);
   }
@@ -330,15 +327,15 @@ export default function HelpersPage() {
       setError("Select a Block");
       return;
     }
-    if (!locationType) {
-      setError("Select GP or Municipality");
+    if (!useGP && !useMun) {
+      setError("Select at least GP or Municipality");
       return;
     }
-    if (locationType === "gp" && !selectedGP) {
+    if (useGP && !selectedGP) {
       setError("Select a Gram Panchayat");
       return;
     }
-    if (locationType === "municipality" && !selectedMun) {
+    if (useMun && !selectedMun) {
       setError("Select a Municipality");
       return;
     }
@@ -351,11 +348,11 @@ export default function HelpersPage() {
         subDivision: sdData?.name || selectedBC.subDivision,
         block: selectedBlock,
         gramPanchayats:
-          locationType === "gp"
+          useGP && selectedGP
             ? [{ gpName: selectedGP, villages: selectedVillages }]
             : [],
         municipalities:
-          locationType === "municipality"
+          useMun && selectedMun
             ? [{ municipalityName: selectedMun, wards: selectedWards }]
             : [],
       };
@@ -752,49 +749,24 @@ export default function HelpersPage() {
                 {selectedBC && selectedBlock && (
                   <>
                     <div className="form-group">
-                      <label className="form-label">Location Type *</label>
+                      <label className="form-label">Location Type * <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>(ek ya dono choose karo)</span></label>
                       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                        {[
-                          { key: "gp", label: "🌿 Gram Panchayat" },
-                          { key: "municipality", label: "🏙 Municipality" },
-                        ].map((item) => (
-                          <label
-                            key={item.key}
-                            onClick={() => {
-                              setLocationType(
-                                item.key === locationType
-                                  ? ""
-                                  : (item.key as any),
-                              );
-                              setSelectedGP("");
-                              setSelectedVillages([]);
-                              setSelectedMun("");
-                              setSelectedWards([]);
-                            }}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "7px 14px",
-                              border: `2px solid ${locationType === item.key ? "var(--green-mid)" : "var(--border)"}`,
-                              borderRadius: "var(--radius-sm)",
-                              background:
-                                locationType === item.key
-                                  ? "var(--green-light)"
-                                  : "var(--surface)",
-                              cursor: "pointer",
-                              fontSize: 13,
-                              userSelect: "none",
-                            }}
-                          >
-                            {locationType === item.key ? "✓ " : ""}
-                            {item.label}
-                          </label>
-                        ))}
+                        <label
+                          onClick={() => { setUseGP(!useGP); if (useGP) { setSelectedGP(""); setSelectedVillages([]); } }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", border: `2px solid ${useGP ? "var(--green-mid)" : "var(--border)"}`, borderRadius: "var(--radius-sm)", background: useGP ? "var(--green-light)" : "var(--surface)", cursor: "pointer", fontSize: 13, userSelect: "none" }}
+                        >
+                          {useGP ? "✓ " : ""}🌿 Gram Panchayat
+                        </label>
+                        <label
+                          onClick={() => { setUseMun(!useMun); if (useMun) { setSelectedMun(""); setSelectedWards([]); } }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", border: `2px solid ${useMun ? "var(--green-mid)" : "var(--border)"}`, borderRadius: "var(--radius-sm)", background: useMun ? "var(--green-light)" : "var(--surface)", cursor: "pointer", fontSize: 13, userSelect: "none" }}
+                        >
+                          {useMun ? "✓ " : ""}🏙 Municipality
+                        </label>
                       </div>
                     </div>
 
-                    {locationType === "gp" && blockData && (
+                    {useGP && blockData && (
                       <div className="form-group">
                         <CreatableSearchSelect
                           label="Gram Panchayat *"
@@ -893,7 +865,7 @@ export default function HelpersPage() {
                       </div>
                     )}
 
-                    {locationType === "municipality" && blockData && (
+                    {useMun && blockData && (
                       <div className="form-group">
                         <CreatableSearchSelect
                           label="Municipality *"

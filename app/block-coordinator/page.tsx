@@ -49,8 +49,10 @@ export default function BCPanel() {
   const [helperForm, setHelperForm] = useState(EMPTY_HELPER);
   const [useGP, setUseGP] = useState(false);
   const [useMun, setUseMun] = useState(false);
-  const [selectedGPs, setSelectedGPs] = useState<{ gpName: string; villages: string[] }[]>([]);
-  const [selectedMuns, setSelectedMuns] = useState<{ municipalityName: string; wards: string[] }[]>([]);
+  const [selectedGP, setSelectedGP] = useState("");
+  const [selectedVillages, setSelectedVillages] = useState<string[]>([]);
+  const [selectedMun, setSelectedMun] = useState("");
+  const [selectedWards, setSelectedWards] = useState<string[]>([]);
   const [locations, setLocations] = useState<SubDiv[]>([]);
   const [helperLoading, setHelperLoading] = useState(false);
   const [helperError, setHelperError] = useState("");
@@ -117,37 +119,18 @@ export default function BCPanel() {
         ...helperForm,
         blockCoordinatorId: bc._id,
         subDivision: bc.subDivision,
-        gramPanchayats: useGP ? selectedGPs : [],
-        municipalities: useMun ? selectedMuns : [],
+        gramPanchayats: useGP && selectedGP ? [{ gpName: selectedGP, villages: selectedVillages }] : [],
+        municipalities: useMun && selectedMun ? [{ municipalityName: selectedMun, wards: selectedWards }] : [],
       };
       const res = await fetch("/api/helpers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); setHelperError(d.error || "Failed"); return; }
-      setShowHelperForm(false); setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGPs([]); setSelectedMuns([]);
+      setShowHelperForm(false); setHelperForm(EMPTY_HELPER); setUseGP(false); setUseMun(false); setSelectedGP(""); setSelectedVillages([]); setSelectedMun(""); setSelectedWards([]);
       loadHelpers();
     } catch { setHelperError("Something went wrong"); }
     finally { setHelperLoading(false); }
   }
 
-  function toggleGPSelected(gpNames: string[]) {
-    setSelectedGPs(prev => {
-      const kept = prev.filter(g => gpNames.includes(g.gpName));
-      const added = gpNames.filter(n => !prev.find(g => g.gpName === n)).map(n => ({ gpName: n, villages: [] }));
-      return [...kept, ...added];
-    });
-  }
-  function setGPVillages(gpName: string, villages: string[]) {
-    setSelectedGPs(prev => prev.map(g => g.gpName === gpName ? { ...g, villages } : g));
-  }
-  function toggleMunSelected(munNames: string[]) {
-    setSelectedMuns(prev => {
-      const kept = prev.filter(m => munNames.includes(m.municipalityName));
-      const added = munNames.filter(n => !prev.find(m => m.municipalityName === n)).map(n => ({ municipalityName: n, wards: [] }));
-      return [...kept, ...added];
-    });
-  }
-  function setMunWards(munName: string, wards: string[]) {
-    setSelectedMuns(prev => prev.map(m => m.municipalityName === munName ? { ...m, wards } : m));
-  }
+
 
   const filteredHelpers = helpers.filter(h => {
     if (!helperSearch) return true;
@@ -299,8 +282,10 @@ export default function BCPanel() {
                 setHelperForm(EMPTY_HELPER);
                 setUseGP(false);
                 setUseMun(false);
-                setSelectedGPs([]);
-                setSelectedMuns([]);
+                setSelectedGP("");
+                setSelectedVillages([]);
+                setSelectedMun("");
+                setSelectedWards([]);
                 setHelperError("");
                 setShowHelperForm(true);
               }}
