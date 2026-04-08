@@ -524,7 +524,7 @@ export default function AddHelperModal({
                 <label className="form-label">Block Coordinator *</label>
                 <input
                   className="form-input"
-                  placeholder="🔍 Search by ID, name, GP, or phone no..."
+                  placeholder="🔍 Search by ID or name or GP or phone no..."
                   value={bcSearch}
                   autoComplete="off"
                   onFocus={() => setShowBCDrop(true)}

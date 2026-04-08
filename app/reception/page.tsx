@@ -91,9 +91,6 @@ export default function ReceptionPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [patientSearch, setPatientSearch] = useState("");
-  const [sortKey, setSortKey] = useState<"name" | "ipdNo" | "doa">("doa");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -234,68 +231,13 @@ export default function ReceptionPage() {
     loadPatients();
   }
 
-  function toggleSort(key: typeof sortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
-  const SortTh = ({ label, k }: { label: string; k: typeof sortKey }) => (
-    <th
-      onClick={() => toggleSort(k)}
-      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
-    >
-      {label}{" "}
-      {sortKey === k ? (
-        sortDir === "asc" ? (
-          "↑"
-        ) : (
-          "↓"
-        )
-      ) : (
-        <span style={{ opacity: 0.3 }}>↕</span>
-      )}
-    </th>
-  );
-
-  const q = patientSearch.toLowerCase();
-  const displayPatients = patients
-    .filter(
-      (p) =>
-        !filterHelper ||
-        (p.helperId as any)?._id === filterHelper ||
-        p.helperId === (filterHelper as any),
-    )
-    .filter(
-      (p) =>
-        !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.mobile.includes(q) ||
-        p.ipdNo.toLowerCase().includes(q) ||
-        (p.helperId as any)?.name?.toLowerCase().includes(q),
-    )
-    .sort((a, b) => {
-      const va =
-        sortKey === "doa"
-          ? new Date(a.doa).getTime()
-          : (a[sortKey] || "").toLowerCase();
-      const vb =
-        sortKey === "doa"
-          ? new Date(b.doa).getTime()
-          : (b[sortKey] || "").toLowerCase();
-      return sortDir === "asc"
-        ? va < vb
-          ? -1
-          : va > vb
-            ? 1
-            : 0
-        : va > vb
-          ? -1
-          : va < vb
-            ? 1
-            : 0;
-    });
+  const displayPatients = filterHelper
+    ? patients.filter(
+        (p) =>
+          (p.helperId as any)?._id === filterHelper ||
+          p.helperId === (filterHelper as any),
+      )
+    : patients;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -411,20 +353,10 @@ export default function ReceptionPage() {
                   ✕ Clear
                 </button>
               )}
-              <div className="form-group">
-                <label className="form-label">Search</label>
-                <input
-                  className="form-input"
-                  placeholder="Name, mobile, IPD, SB..."
-                  value={patientSearch}
-                  onChange={(e) => setPatientSearch(e.target.value)}
-                  style={{ width: 200, fontSize: 13 }}
-                />
-              </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button
-                className="btn btn-secondary"
+                className="btn btn-primary"
                 onClick={() => setShowAddHelper(true)}
               >
                 + Add Swasthya Bondhu
@@ -467,9 +399,9 @@ export default function ReceptionPage() {
             <table>
               <thead>
                 <tr>
-                  <SortTh label="Patient" k="name" />
-                  <SortTh label="IPD" k="ipdNo" />
-                  <SortTh label="DOA" k="doa" />
+                  <th>Patient</th>
+                  <th>IPD</th>
+                  <th>DOA</th>
                   <th>Swasthya Bondhu</th>
                   <th>Address</th>
                   <th>Actions</th>
@@ -480,11 +412,7 @@ export default function ReceptionPage() {
                   <tr>
                     <td colSpan={9}>
                       <div className="empty-state" style={{ padding: "24px" }}>
-                        <p>
-                          {patientSearch || filterHelper
-                            ? "No results found."
-                            : "No patients found."}
-                        </p>
+                        <p>No patients found.</p>
                       </div>
                     </td>
                   </tr>
@@ -573,7 +501,7 @@ export default function ReceptionPage() {
                     <label className="form-label">Swasthya Bondhu *</label>
                     <input
                       className="form-input"
-                      placeholder="🔍 Search by name, phone, block, GP, ID..."
+                      placeholder="🔍 Search by name or phone or GP or ID"
                       value={helperSearch}
                       autoComplete="off"
                       onFocus={() => setShowHelperDrop(true)}
@@ -592,7 +520,7 @@ export default function ReceptionPage() {
                           marginTop: 4,
                         }}
                       >
-                        💡 Search by name, phone, block, GP or coordinator ID
+                        💡 Search by name or phone or GP or coordinator ID
                       </div>
                     )}
                     {showHelperDrop && !selectedHelper && (
@@ -768,6 +696,14 @@ export default function ReceptionPage() {
                   </div>
 
                   {/* Patient Address */}
+                  <PatientExtraFields
+                    pincode={form.pincode || ""}
+                    aadharNumber={form.aadharNumber || ""}
+                    swasthaSathNumber={form.swasthaSathNumber || ""}
+                    onChange={(field, value) =>
+                      setForm((f) => ({ ...f, [field]: value }))
+                    }
+                  />
                   <PatientAddressSelect value={address} onChange={setAddress} />
                 </div>
                 <div className="modal-footer">
@@ -804,6 +740,7 @@ export default function ReceptionPage() {
               .then((r) => r.json())
               .then((d) => setHelpers(Array.isArray(d) ? d : []))
           }
+          role="receptionist"
         />
       )}
     </div>

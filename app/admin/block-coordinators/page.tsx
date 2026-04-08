@@ -174,14 +174,14 @@ export default function BlockCoordinatorsPage() {
       <div className="page-header">
         <h2>Block Coordinators</h2>
         <button className="btn btn-primary" onClick={openAdd}>
-          + Add Coordinator
+          + Add Block Coordinator
         </button>
       </div>
       <div className="page-body">
         <div style={{ marginBottom: 14 }}>
           <input
             className="form-input"
-            placeholder="🔍 Search by name, ID, phone, sub division..."
+            placeholder="🔍 Search by name or id or phone or sub division..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 400, fontSize: 13 }}
@@ -307,7 +307,7 @@ export default function BlockCoordinatorsPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">Coordinator ID *</label>
+                    <label className="form-label">Block Coordinator ID *</label>
                     <input
                       className="form-input"
                       required
@@ -428,8 +428,8 @@ export default function BlockCoordinatorsPage() {
                   {loading
                     ? "Saving..."
                     : editItem
-                      ? "Update"
-                      : "Add Coordinator"}
+                      ? "Update Block Coordinator"
+                      : "Add Block Coordinator"}
                 </button>
               </div>
             </form>

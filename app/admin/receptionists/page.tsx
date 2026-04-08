@@ -144,7 +144,7 @@ export default function ReceptionistsPage() {
         <div style={{ marginBottom: 14 }}>
           <input
             className="form-input"
-            placeholder="🔍 Search by name or username..."
+            placeholder="🔍 Search by name ..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 360, fontSize: 13 }}

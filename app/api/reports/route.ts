@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
     reportMap[helper._id.toString()] = {
       helper: {
         _id: helper._id,
+        helperId: helper.helperId || "",
         name: helper.name,
         phone: helper.phone,
         subDivision: helper.subDivision,

@@ -443,7 +443,7 @@ export default function HelpersPage() {
           <input
             className="form-input"
             style={{ maxWidth: 380 }}
-            placeholder="🔍 Search by name, phone, ID, block, GP..."
+            placeholder="🔍 Search by name or phone or ID or Sub-Division"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -452,6 +452,7 @@ export default function HelpersPage() {
           <table>
             <thead>
               <tr>
+                <th>Id</th>
                 <SortTh label="Name" k="name" />
                 <th>Phone</th>
                 <th>Block Coordinator</th>
@@ -478,6 +479,7 @@ export default function HelpersPage() {
               ) : (
                 filtered.map((h) => (
                   <tr key={h._id}>
+                    <td style={{ fontWeight: 500 }}>{h.helperId}</td>
                     <td style={{ fontWeight: 500 }}>{h.name}</td>
                     <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                       {h.phone}
@@ -620,7 +622,7 @@ export default function HelpersPage() {
                   <label className="form-label">Block Coordinator *</label>
                   <input
                     className="form-input"
-                    placeholder="🔍 Search by ID, name, GP, or phone no..."
+                    placeholder="🔍 Search by ID or name or GP or phone no..."
                     value={bcSearch}
                     autoComplete="off"
                     onFocus={() => setShowBCDrop(true)}

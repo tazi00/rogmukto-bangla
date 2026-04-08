@@ -121,7 +121,7 @@ export default function DischargePanel({ patients, onRefresh }: Props) {
       <div className="form-group" style={{ marginBottom: 16 }}>
         <input
           className="form-input"
-          placeholder="🔍 Search by Patient Name, Phone, IPD No, or Swasthya Bondhu..."
+          placeholder="🔍 Search by  Name or Phone or IPD No or Swasthya Bondhu..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);

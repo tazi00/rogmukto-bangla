@@ -45,6 +45,7 @@ interface Helper {
 interface ReportRow {
   helper: {
     _id: string;
+    helperId: string;
     name: string;
     phone: string;
     subDivision: string;
@@ -83,7 +84,7 @@ interface Patient {
   };
   address?: any;
 }
-
+type IdFilterType = "all" | "with" | "without";
 type Role = "admin" | "receptionist" | "block-coordinator" | null;
 type TabType = "coordinator" | "helper" | "patient";
 
@@ -147,6 +148,7 @@ export default function ViewPage() {
   const [selHelperId, setSelHelperId] = useState("");
   const [dischargeFilter, setDischargeFilter] = useState("");
   const [patientSearch, setPatientSearch] = useState("");
+  const [idFilter, setIdFilter] = useState<IdFilterType>("all");
 
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [blockCoordinators, setBlockCoordinators] = useState<BC[]>([]);
@@ -306,6 +308,7 @@ export default function ViewPage() {
     setSelHelperId("");
     setDischargeFilter("");
     setPatientSearch("");
+    setIdFilter("all");
     // BC can't reset their own BC filter
     if (role !== "block-coordinator") setSelBCId("");
   }
@@ -315,6 +318,13 @@ export default function ViewPage() {
     : selSDId
       ? blockCoordinators.filter((bc) => bc.subDivision === sdName)
       : blockCoordinators;
+
+  // Filter helperReport by noId
+  const displayHelperReport = helperReport.filter((row) => {
+    if (idFilter === "with") return !!row.helper.helperId;
+    if (idFilter === "without") return !row.helper.helperId;
+    return true;
+  });
 
   const displayPatients = patients
     .filter(
@@ -335,15 +345,15 @@ export default function ViewPage() {
 
   const totalPatients =
     activeTab === "helper"
-      ? helperReport.reduce((s, r) => s + r.totalPatients, 0)
+      ? displayHelperReport.reduce((s, r) => s + r.totalPatients, 0)
       : displayPatients.length;
   const totalIncentive =
     activeTab === "helper"
-      ? helperReport.reduce((s, r) => s + r.totalIncentive, 0)
+      ? displayHelperReport.reduce((s, r) => s + r.totalIncentive, 0)
       : displayPatients.reduce((s, p) => s + p.incentiveAmount, 0);
   const pendingAmount =
     activeTab === "helper"
-      ? helperReport.reduce((s, r) => s + r.pendingIncentive, 0)
+      ? displayHelperReport.reduce((s, r) => s + r.pendingIncentive, 0)
       : displayPatients
           .filter((p) => p.paymentStatus === "pending")
           .reduce((s, p) => s + p.incentiveAmount, 0);
@@ -387,7 +397,12 @@ export default function ViewPage() {
   function exportHelpers() {
     const monthLabel =
       MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
-    const rows = helperReport.map((row) => ({
+    const sheetName =
+      idFilter === "without"
+        ? `SB_Without_ID_${monthLabel}_${selYear}`
+        : `SwasthyaBondhu_${monthLabel}_${selYear}`;
+    const rows = displayHelperReport.map((row) => ({
+      "SB ID": row.helper.helperId || "—",
       Name: row.helper.name,
       Phone: row.helper.phone,
       "Sub Division": row.helper.subDivision,
@@ -399,7 +414,7 @@ export default function ViewPage() {
       "Pending (₹)": row.pendingIncentive,
       "Cleared (₹)": row.clearedIncentive,
     }));
-    writeXlsx(rows, `SwasthyaBondhu_${monthLabel}_${selYear}`);
+    writeXlsx(rows, sheetName);
   }
 
   function exportPatients() {
@@ -486,7 +501,8 @@ export default function ViewPage() {
     selHelperId ||
     (role !== "block-coordinator" && selBCId) ||
     dischargeFilter ||
-    patientSearch;
+    patientSearch ||
+    idFilter;
 
   // Role-based: which tabs are visible
   const showCoordinatorTab = role === "admin";
@@ -971,6 +987,22 @@ export default function ViewPage() {
               </div>
             )}
 
+            {/* No ID filter — helper tab only */}
+            {activeTab === "helper" && (
+              <div>
+                <span style={labelStyle}>ID Filter</span>
+                <select
+                  style={selStyle}
+                  value={idFilter}
+                  onChange={(e) => setIdFilter(e.target.value as IdFilterType)}
+                >
+                  <option value="all">All</option>
+                  <option value="with">With ID</option>
+                  <option value="without">Without ID</option>
+                </select>
+              </div>
+            )}
+
             {hasFilters && (
               <button
                 className="btn btn-secondary btn-sm"
@@ -1094,6 +1126,7 @@ export default function ViewPage() {
             <table>
               <thead>
                 <tr>
+                  <th>SB ID</th>
                   <th>Name</th>
                   <th>Phone</th>
                   <th>Sub Division</th>
@@ -1111,19 +1144,47 @@ export default function ViewPage() {
                 </tr>
               </thead>
               <tbody>
-                {helperReport.length === 0 ? (
+                {displayHelperReport.length === 0 ? (
                   <tr>
-                    <td colSpan={showPaymentCols ? 10 : 7}>
+                    <td colSpan={showPaymentCols ? 12 : 9}>
                       <div className="empty-state">
-                        <p>No data for selected filters.</p>
+                        <p>
+                          {idFilter === "without"
+                            ? "All Swasthya Bondhu have IDs assigned."
+                            : "No data for selected filters."}
+                        </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  helperReport
+                  displayHelperReport
                     .filter((row) => row.helper)
                     .map((row) => (
-                      <tr key={row.helper._id}>
+                      <tr
+                        key={row.helper._id}
+                        style={
+                          !row.helper.helperId ? { background: "#fff8e1" } : {}
+                        }
+                      >
+                        <td>
+                          {row.helper.helperId ? (
+                            <span
+                              style={{ fontFamily: "monospace", fontSize: 12 }}
+                            >
+                              {row.helper.helperId}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                color: "var(--accent)",
+                                fontSize: 11,
+                                fontWeight: 700,
+                              }}
+                            >
+                              ⚠ No ID
+                            </span>
+                          )}
+                        </td>
                         <td style={{ fontWeight: 500 }}>{row.helper.name}</td>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                           {row.helper.phone}
