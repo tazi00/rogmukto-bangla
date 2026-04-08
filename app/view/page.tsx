@@ -30,6 +30,7 @@ interface BCPerf {
   subDivision: string;
   blocks: string[];
   address: string;
+  createdAt?: string;
   sbCount: number;
   totalPatients: number;
   totalIncentive: number;
@@ -54,7 +55,6 @@ interface SBPerf {
   clearedIncentive: number;
 }
 
-// Searchable dropdown
 function SearchableSelect({
   options,
   value,
@@ -261,7 +261,6 @@ function ViewPageInner() {
   const searchParams = useSearchParams();
   const now = new Date();
 
-  // Read month from URL if present
   const initMonth = searchParams.get("month");
   const initYear = initMonth
     ? initMonth.split("-")[0]
@@ -275,20 +274,29 @@ function ViewPageInner() {
   const [selYear, setSelYear] = useState(initYear);
   const [selMonth, setSelMonth] = useState(initMon);
 
-  // Active section: "bc" | "sb" | "patient"
   const [activeSection, setActiveSection] = useState<"bc" | "sb" | "patient">(
     "bc",
   );
 
-  // BC data
+  // BC data + filters
   const [bcPerf, setBcPerf] = useState<BCPerf[]>([]);
-  const [bcSearch, setBcSearch] = useState("");
+  const [bcSearch, setBcSearch] = useState(""); // ID, name, phone only
   const [bcSDFilter, setBcSDFilter] = useState("");
   const [bcBlockFilter, setBcBlockFilter] = useState("");
   const [bcSortKey, setBcSortKey] = useState("name");
   const [bcSortDir, setBcSortDir] = useState<SortDir>("asc");
 
-  // SB data
+  // BC date filter (createdAt based)
+  const [bcDateFrom, setBcDateFrom] = useState("");
+  const [bcDateTo, setBcDateTo] = useState("");
+  const [dateKey, setDateKey] = useState(0);
+
+  // Locations from DB (for SubDiv/Block dropdowns)
+  const [locations, setLocations] = useState<
+    { _id: string; name: string; blocks: { _id: string; name: string }[] }[]
+  >([]);
+
+  // SB data + filters
   const [sbPerf, setSbPerf] = useState<SBPerf[]>([]);
   const [sbSearch, setSbSearch] = useState("");
   const [sbBCFilter, setSbBCFilter] = useState("");
@@ -297,17 +305,10 @@ function ViewPageInner() {
   const [sbSortKey, setSbSortKey] = useState("name");
   const [sbSortDir, setSbSortDir] = useState<SortDir>("asc");
 
-  // Patient data — for stats only on main page
-  const [patientStats, setPatientStats] = useState({
-    total: 0,
-    admitted: 0,
-    continued: 0,
-    transferred: 0,
-  });
-
+  // Patient stats for cards only
+  const [patientStats, setPatientStats] = useState({ total: 0 });
   const [loading, setLoading] = useState(false);
 
-  // Sync year/month from URL whenever searchParams changes
   useEffect(() => {
     const month = searchParams.get("month");
     if (month) {
@@ -330,6 +331,12 @@ function ViewPageInner() {
     setRole(r);
     if (r === "receptionist") setActiveSection("sb");
     else setActiveSection("bc");
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/locations")
+      .then((r) => r.json())
+      .then((d) => setLocations(Array.isArray(d) ? d : []));
   }, []);
 
   useEffect(() => {
@@ -360,17 +367,7 @@ function ViewPageInner() {
         const pats = await patRes
           .json()
           .then((d) => (Array.isArray(d) ? d : []));
-        setPatientStats({
-          total: pats.length,
-          admitted: pats.filter(
-            (p: any) => !p.dischargeStatus || p.dischargeStatus === "admitted",
-          ).length,
-          continued: pats.filter((p: any) => p.dischargeStatus === "continued")
-            .length,
-          transferred: pats.filter(
-            (p: any) => p.dischargeStatus === "transferred",
-          ).length,
-        });
+        setPatientStats({ total: pats.length });
       }
     } catch {
     } finally {
@@ -380,15 +377,17 @@ function ViewPageInner() {
 
   const isAdmin = role === "admin";
   const isBC = role === "block-coordinator";
-  const isReception = role === "receptionist";
 
   // ── BC computed ──────────────────────────────────────────────────────────
-  const uniqueBCSubDivs = Array.from(
-    new Set(bcPerf.map((bc) => bc.subDivision)),
-  ).sort();
-  const uniqueBCBlocks = Array.from(
-    new Set(bcPerf.flatMap((bc) => bc.blocks)),
-  ).sort();
+  // SubDivisions from locations DB (not from current bcPerf data)
+  const allSubDivs = locations.map((sd) => sd.name).sort();
+  // Blocks — filtered by selected SD if any, else all blocks
+  const matchedSD = locations.find((sd) => sd.name === bcSDFilter);
+  const allBlocks =
+    bcSDFilter && matchedSD
+      ? matchedSD.blocks.map((b) => b.name).sort()
+      : locations.flatMap((sd) => sd.blocks.map((b) => b.name)).sort();
+
   function toggleBCSort(k: string) {
     if (bcSortKey === k) setBcSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -396,17 +395,34 @@ function ViewPageInner() {
       setBcSortDir("asc");
     }
   }
+
   const displayBCs = bcPerf
     .filter((bc) => {
       if (bcSDFilter && bc.subDivision !== bcSDFilter) return false;
       if (bcBlockFilter && !bc.blocks.includes(bcBlockFilter)) return false;
+      // Date filter — createdAt based (inclusive range)
+      if (bcDateFrom || bcDateTo) {
+        const raw = bc.createdAt;
+        if (!raw) return false;
+        const created = new Date(raw);
+        if (bcDateFrom) {
+          const from = new Date(bcDateFrom);
+          from.setHours(0, 0, 0, 0);
+          if (created < from) return false;
+        }
+        if (bcDateTo) {
+          const to = new Date(bcDateTo);
+          to.setHours(23, 59, 59, 999);
+          if (created > to) return false;
+        }
+      }
+      // Search — only ID, name, phone
       if (!bcSearch) return true;
       const q = bcSearch.toLowerCase();
       return (
         bc.name.toLowerCase().includes(q) ||
         bc.coordinatorId.toLowerCase().includes(q) ||
-        bc.phone.includes(q) ||
-        bc.subDivision.toLowerCase().includes(q)
+        bc.phone.includes(q)
       );
     })
     .sort((a, b) => {
@@ -421,6 +437,7 @@ function ViewPageInner() {
   const uniqueSBSubDivs = Array.from(
     new Set(sbPerf.map((r) => r.helper.subDivision)),
   ).sort();
+
   function toggleSBSort(k: string) {
     if (sbSortKey === k) setSbSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -428,6 +445,7 @@ function ViewPageInner() {
       setSbSortDir("asc");
     }
   }
+
   const displaySBs = sbPerf
     .filter((row) => {
       if (sbNoId && row.helper.helperId) return false;
@@ -460,9 +478,6 @@ function ViewPageInner() {
       } else if (sbSortKey === "totalPatients") {
         va = a.totalPatients;
         vb = b.totalPatients;
-      } else if (sbSortKey === "totalIncentive") {
-        va = a.totalIncentive;
-        vb = b.totalIncentive;
       } else {
         va = a.helper.helperId || "";
         vb = b.helper.helperId || "";
@@ -472,7 +487,6 @@ function ViewPageInner() {
       return sbSortDir === "asc" ? r : -r;
     });
 
-  // ── Export ───────────────────────────────────────────────────────────────
   function writeXlsx(rows: any[], name: string) {
     if (!rows.length) return;
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -496,9 +510,6 @@ function ViewPageInner() {
           Blocks: bc.blocks.join(", "),
           "SB Count": bc.sbCount,
           "Total Patients": bc.totalPatients,
-          "Total ₹": bc.totalIncentive,
-          "Pending ₹": bc.pendingIncentive,
-          "Cleared ₹": bc.clearedIncentive,
         })),
         `BlockCoordinators_${mon}_${selYear}`,
       );
@@ -515,9 +526,6 @@ function ViewPageInner() {
           Block: row.helper.block,
           GP: row.helper.gramPanchayat,
           Patients: row.totalPatients,
-          "Total ₹": row.totalIncentive,
-          "Pending ₹": row.pendingIncentive,
-          "Cleared ₹": row.clearedIncentive,
         })),
         name,
       );
@@ -541,12 +549,18 @@ function ViewPageInner() {
       : "Receptionist";
 
   if (!mounted) return null;
-
   const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    marginBottom: 4,
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
-      {/* Header */}
       <header
         style={{
           background: "var(--green-dark)",
@@ -624,58 +638,15 @@ function ViewPageInner() {
       </header>
 
       <div style={{ padding: "20px 24px" }}>
-        {/* ── YEAR / MONTH SELECTOR ── */}
+        {/* Export button only */}
         <div
           style={{
             display: "flex",
             gap: 10,
             alignItems: "center",
             marginBottom: 20,
-            flexWrap: "wrap",
           }}
         >
-          <select
-            style={{
-              fontSize: 13,
-              padding: "7px 10px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              color: "var(--text)",
-            }}
-            value={selYear}
-            onChange={(e) => {
-              setSelYear(e.target.value);
-              router.replace(`/view?month=${e.target.value}-${selMonth}`);
-            }}
-          >
-            {YEARS.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <select
-            style={{
-              fontSize: 13,
-              padding: "7px 10px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              color: "var(--text)",
-            }}
-            value={selMonth}
-            onChange={(e) => {
-              setSelMonth(e.target.value);
-              router.replace(`/view?month=${selYear}-${e.target.value}`);
-            }}
-          >
-            {MONTHS.map((m) => (
-              <option key={m.val} value={m.val}>
-                {m.label}
-              </option>
-            ))}
-          </select>
           <button
             className="btn btn-secondary"
             onClick={handleExport}
@@ -685,7 +656,7 @@ function ViewPageInner() {
           </button>
         </div>
 
-        {/* ── STAT CARDS ── */}
+        {/* Stat Cards */}
         <div
           style={{
             display: "grid",
@@ -836,78 +807,25 @@ function ViewPageInner() {
               View more →
             </div>
           </div>
-          {(isAdmin || isBC) && (
-            <div
-              style={{
-                padding: "16px 20px",
-                background: "var(--surface)",
-                border: "2px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Total Incentive
-              </div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: "var(--text)",
-                  marginTop: 4,
-                }}
-              >
-                ₹
-                {bcPerf
-                  .reduce((s, bc) => s + bc.totalIncentive, 0)
-                  .toLocaleString()}
-              </div>
-              <div
-                style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}
-              >
-                Pending: ₹
-                {bcPerf
-                  .reduce((s, bc) => s + bc.pendingIncentive, 0)
-                  .toLocaleString()}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── BC TABLE ── */}
         {activeSection === "bc" && isAdmin && (
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 14,
-                flexWrap: "wrap",
-                gap: 10,
-              }}
-            >
-              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
-                Block Coordinators{" "}
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    fontWeight: 400,
-                  }}
-                >
-                  ({displayBCs.length})
-                </span>
-              </h3>
-            </div>
-            {/* Filters */}
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 14px 0" }}>
+              Block Coordinators{" "}
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontWeight: 400,
+                }}
+              >
+                ({displayBCs.length})
+              </span>
+            </h3>
+
+            {/* BC Filters */}
             <div
               style={{
                 display: "flex",
@@ -917,68 +835,68 @@ function ViewPageInner() {
                 alignItems: "flex-end",
               }}
             >
+              {/* Search — ID, name, phone only */}
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 4,
-                  }}
-                >
-                  Search
-                </div>
+                <div style={labelStyle}>Search</div>
                 <input
                   className="form-input"
                   placeholder="ID, name, phone..."
                   value={bcSearch}
                   onChange={(e) => setBcSearch(e.target.value)}
-                  style={{ width: 220, fontSize: 13 }}
+                  style={{ width: 200, fontSize: 13 }}
                 />
               </div>
+              {/* Sub Division */}
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 4,
-                  }}
-                >
-                  Sub Division
-                </div>
+                <div style={labelStyle}>Sub Division</div>
                 <SearchableSelect
-                  options={uniqueBCSubDivs.map((s) => ({ label: s, value: s }))}
+                  options={allSubDivs.map((s) => ({ label: s, value: s }))}
                   value={bcSDFilter}
-                  onChange={setBcSDFilter}
+                  onChange={(v) => {
+                    setBcSDFilter(v);
+                    setBcBlockFilter("");
+                  }}
                   placeholder="All Sub Divisions"
                 />
               </div>
+              {/* Block */}
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 4,
-                  }}
-                >
-                  Block
-                </div>
+                <div style={labelStyle}>Block</div>
                 <SearchableSelect
-                  options={uniqueBCBlocks.map((s) => ({ label: s, value: s }))}
+                  options={allBlocks.map((s) => ({ label: s, value: s }))}
                   value={bcBlockFilter}
                   onChange={setBcBlockFilter}
                   placeholder="All Blocks"
                 />
               </div>
-              {(bcSearch || bcSDFilter || bcBlockFilter) && (
+              {/* Date filter — createdAt based */}
+              <div>
+                <div style={labelStyle}>Date From</div>
+                <input
+                  type="date"
+                  className="form-input"
+                  key={`from-${dateKey}`}
+                  value={bcDateFrom}
+                  onChange={(e) => setBcDateFrom(e.target.value)}
+                  style={{ fontSize: 13, colorScheme: "light" }}
+                />
+              </div>
+              <div>
+                <div style={labelStyle}>Date To</div>
+                <input
+                  type="date"
+                  className="form-input"
+                  key={`to-${dateKey}`}
+                  value={bcDateTo}
+                  onChange={(e) => setBcDateTo(e.target.value)}
+                  style={{ fontSize: 13, colorScheme: "light" }}
+                />
+              </div>
+              {(bcSearch ||
+                bcSDFilter ||
+                bcBlockFilter ||
+                bcDateFrom ||
+                bcDateTo) && (
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ alignSelf: "flex-end" }}
@@ -986,12 +904,16 @@ function ViewPageInner() {
                     setBcSearch("");
                     setBcSDFilter("");
                     setBcBlockFilter("");
+                    setBcDateFrom("");
+                    setBcDateTo("");
+                    setDateKey((k) => k + 1);
                   }}
                 >
                   ✕ Reset
                 </button>
               )}
             </div>
+
             <div className="table-wrapper">
               <table>
                 <thead>
@@ -1018,7 +940,7 @@ function ViewPageInner() {
                       sortDir={bcSortDir}
                       onSort={toggleBCSort}
                     />
-                    <th>Blocks</th>
+                    <th>Block</th>
                     <SortTh
                       label="SBs"
                       k="sbCount"
@@ -1033,27 +955,16 @@ function ViewPageInner() {
                       sortDir={bcSortDir}
                       onSort={toggleBCSort}
                     />
-                    <SortTh
-                      label="Total ₹"
-                      k="totalIncentive"
-                      sortKey={bcSortKey}
-                      sortDir={bcSortDir}
-                      onSort={toggleBCSort}
-                    />
-                    <SortTh
-                      label="Pending"
-                      k="pendingIncentive"
-                      sortKey={bcSortKey}
-                      sortDir={bcSortDir}
-                      onSort={toggleBCSort}
-                    />
-                    <th>Cleared</th>
+                    {/* Total/Pending/Cleared — disabled for now */}
+                    {/* <SortTh label="Total ₹" k="totalIncentive" sortKey={bcSortKey} sortDir={bcSortDir} onSort={toggleBCSort} /> */}
+                    {/* <SortTh label="Pending" k="pendingIncentive" sortKey={bcSortKey} sortDir={bcSortDir} onSort={toggleBCSort} /> */}
+                    {/* <th>Cleared</th> */}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={7}>
                         <div
                           style={{
                             textAlign: "center",
@@ -1067,7 +978,7 @@ function ViewPageInner() {
                     </tr>
                   ) : displayBCs.length === 0 ? (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={7}>
                         <div className="empty-state">
                           <p>No block coordinators found.</p>
                         </div>
@@ -1102,20 +1013,24 @@ function ViewPageInner() {
                           {bc.phone}
                         </td>
                         <td style={{ fontSize: 12 }}>{bc.subDivision}</td>
+                        {/* Show only first block */}
                         <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 4,
-                            }}
-                          >
-                            {bc.blocks.map((b) => (
-                              <span key={b} className="badge badge-gray">
-                                {b}
-                              </span>
-                            ))}
-                          </div>
+                          {bc.blocks[0] && (
+                            <span className="badge badge-gray">
+                              {bc.blocks[0]}
+                            </span>
+                          )}
+                          {bc.blocks.length > 1 && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                                marginLeft: 4,
+                              }}
+                            >
+                              +{bc.blocks.length - 1}
+                            </span>
+                          )}
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <span className="badge badge-green">
@@ -1125,19 +1040,9 @@ function ViewPageInner() {
                         <td style={{ textAlign: "center", fontWeight: 600 }}>
                           {bc.totalPatients}
                         </td>
-                        <td style={{ fontWeight: 600 }}>
-                          ₹{bc.totalIncentive.toLocaleString()}
-                        </td>
-                        <td>
-                          <span className="badge badge-amber">
-                            ₹{bc.pendingIncentive.toLocaleString()}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="badge badge-green">
-                            ₹{bc.clearedIncentive.toLocaleString()}
-                          </span>
-                        </td>
+                        {/* <td style={{ fontWeight: 600 }}>₹{bc.totalIncentive.toLocaleString()}</td> */}
+                        {/* <td><span className="badge badge-amber">₹{bc.pendingIncentive.toLocaleString()}</span></td> */}
+                        {/* <td><span className="badge badge-green">₹{bc.clearedIncentive.toLocaleString()}</span></td> */}
                       </tr>
                     ))
                   )}
@@ -1150,30 +1055,18 @@ function ViewPageInner() {
         {/* ── SB TABLE ── */}
         {activeSection === "sb" && (
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 14,
-                flexWrap: "wrap",
-                gap: 10,
-              }}
-            >
-              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
-                Swasthya Bondhu{" "}
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    fontWeight: 400,
-                  }}
-                >
-                  ({displaySBs.length})
-                </span>
-              </h3>
-            </div>
-            {/* Filters */}
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 14px 0" }}>
+              Swasthya Bondhu{" "}
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  fontWeight: 400,
+                }}
+              >
+                ({displaySBs.length})
+              </span>
+            </h3>
             <div
               style={{
                 display: "flex",
@@ -1184,18 +1077,7 @@ function ViewPageInner() {
               }}
             >
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 4,
-                  }}
-                >
-                  Search
-                </div>
+                <div style={labelStyle}>Search</div>
                 <input
                   className="form-input"
                   placeholder="ID, name, phone, block, GP..."
@@ -1205,18 +1087,7 @@ function ViewPageInner() {
                 />
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 4,
-                  }}
-                >
-                  Sub Division
-                </div>
+                <div style={labelStyle}>Sub Division</div>
                 <SearchableSelect
                   options={uniqueSBSubDivs.map((s) => ({ label: s, value: s }))}
                   value={sbSDFilter}
@@ -1226,18 +1097,7 @@ function ViewPageInner() {
               </div>
               {isAdmin && (
                 <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "var(--text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Block Coordinator
-                  </div>
+                  <div style={labelStyle}>Block Coordinator</div>
                   <SearchableSelect
                     options={bcPerf.map((bc) => ({
                       label: `${bc.name} — ${bc.subDivision}`,
@@ -1318,25 +1178,14 @@ function ViewPageInner() {
                       sortDir={sbSortDir}
                       onSort={toggleSBSort}
                     />
-                    {(isAdmin || isBC) && (
-                      <>
-                        <SortTh
-                          label="Total ₹"
-                          k="totalIncentive"
-                          sortKey={sbSortKey}
-                          sortDir={sbSortDir}
-                          onSort={toggleSBSort}
-                        />
-                        <th>Pending</th>
-                        <th>Cleared</th>
-                      </>
-                    )}
+                    {/* Total/Pending/Cleared — disabled for now */}
+                    {/* {(isAdmin || isBC) && <><SortTh label="Total ₹" k="totalIncentive" .../><th>Pending</th><th>Cleared</th></>} */}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={12}>
+                      <td colSpan={isAdmin ? 8 : 7}>
                         <div
                           style={{
                             textAlign: "center",
@@ -1350,7 +1199,7 @@ function ViewPageInner() {
                     </tr>
                   ) : displaySBs.length === 0 ? (
                     <tr>
-                      <td colSpan={12}>
+                      <td colSpan={isAdmin ? 8 : 7}>
                         <div className="empty-state">
                           <p>
                             {sbNoId ? "All SBs have IDs." : "No data found."}
@@ -1452,23 +1301,9 @@ function ViewPageInner() {
                         >
                           {row.totalPatients}
                         </td>
-                        {(isAdmin || isBC) && (
-                          <>
-                            <td style={{ fontWeight: 600 }}>
-                              ₹{row.totalIncentive.toLocaleString()}
-                            </td>
-                            <td>
-                              <span className="badge badge-amber">
-                                ₹{row.pendingIncentive.toLocaleString()}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="badge badge-green">
-                                ₹{row.clearedIncentive.toLocaleString()}
-                              </span>
-                            </td>
-                          </>
-                        )}
+                        {/* <td>₹{row.totalIncentive.toLocaleString()}</td> */}
+                        {/* <td><span className="badge badge-amber">₹{row.pendingIncentive.toLocaleString()}</span></td> */}
+                        {/* <td><span className="badge badge-green">₹{row.clearedIncentive.toLocaleString()}</span></td> */}
                       </tr>
                     ))
                   )}

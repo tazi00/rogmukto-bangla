@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
       subDivision: bc.subDivision,
       blocks: bc.blocks,
       address: bc.address,
+      createdAt: bc.createdAt,
       sbCount: bcHelpers.length,
       totalPatients: stats.total,
       totalIncentive: stats.totalIncentive,
