@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
   { section: "Config" },
   { href: "/admin/settings", label: "Settings", icon: "⚙" },
   { section: "View" },
-  { href: "/view", label: "Public View Panel", icon: "↗", external: true },
+  { href: "/view", label: "Report", icon: "↗", external: true },
 ];
 
 export default function AdminSidebar() {

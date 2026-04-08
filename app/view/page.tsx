@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 
@@ -237,6 +237,26 @@ function SortTh({
 }
 
 export default function ViewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            padding: 48,
+            textAlign: "center",
+            color: "var(--text-muted)",
+          }}
+        >
+          Loading...
+        </div>
+      }
+    >
+      <ViewPageInner />
+    </Suspense>
+  );
+}
+
+function ViewPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const now = new Date();

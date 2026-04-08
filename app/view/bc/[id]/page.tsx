@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 
 type SortDir = "asc" | "desc";
@@ -78,6 +78,18 @@ function SortTh({
 }
 
 export default function BCDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ padding: 48, textAlign: "center" }}>Loading...</div>
+      }
+    >
+      <BCDetailInner />
+    </Suspense>
+  );
+}
+
+function BCDetailInner() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -450,7 +462,7 @@ export default function BCDetailPage() {
           <div style={{ marginBottom: 14 }}>
             <input
               className="form-input"
-              placeholder="🔍 Search by ID or name or phone or block..."
+              placeholder="🔍 Search by ID, name, phone, block..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ maxWidth: 320, fontSize: 13 }}
