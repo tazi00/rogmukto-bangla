@@ -507,7 +507,7 @@ export default function AdminPatientsPage() {
                     <label className="form-label">Swasthya Bondhu *</label>
                     <input
                       className="form-input"
-                      placeholder="🔍 Search by name, phone, block, GP, ID..."
+                      placeholder="🔍 Search by name or phone or block or GP or ID..."
                       value={helperSearch}
                       autoComplete="off"
                       onFocus={() => setShowHelperDrop(true)}
@@ -526,7 +526,8 @@ export default function AdminPatientsPage() {
                           marginTop: 4,
                         }}
                       >
-                        💡 Search by name, phone, block, GP or coordinator ID
+                        💡 Search by name or phone or block or GP or Block
+                        Coordinator Id
                       </div>
                     )}
                     {showHelperDrop && !selectedHelper && (

@@ -726,7 +726,7 @@ export default function BCPanel() {
             <div style={{ marginBottom: 12 }}>
               <input
                 className="form-input"
-                placeholder="🔍 Search by name, ID, phone, block..."
+                placeholder="🔍 Search by name or ID or phone or block..."
                 value={helperTableSearch}
                 onChange={(e) => setHelperTableSearch(e.target.value)}
                 style={{ maxWidth: 360, fontSize: 13 }}
@@ -843,7 +843,7 @@ export default function BCPanel() {
                   <label className="form-label">Swasthya Bondhu *</label>
                   <input
                     className="form-input"
-                    placeholder="🔍 Search by name, phone, block, GP, ID..."
+                    placeholder="🔍 Search by name or phone or block or GP or ID..."
                     value={helperSearch}
                     autoComplete="off"
                     onFocus={() => setShowHelperDrop(true)}

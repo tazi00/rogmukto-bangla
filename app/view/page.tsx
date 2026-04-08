@@ -1,94 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 
-interface GP {
-  _id: string;
-  name: string;
-}
-interface Municipality {
-  _id: string;
-  name: string;
-}
-interface Block {
-  _id: string;
-  name: string;
-  gramPanchayats: GP[];
-  municipalities: Municipality[];
-}
-interface SubDiv {
-  _id: string;
-  name: string;
-  blocks: Block[];
-}
-interface BC {
-  _id: string;
-  coordinatorId: string;
-  name: string;
-  phone: string;
-  subDivision: string;
-  blocks: string[];
-  address: string;
-}
-interface Helper {
-  _id: string;
-  helperId: string;
-  name: string;
-  phone: string;
-  subDivision: string;
-  block: string;
-  gramPanchayats: { gpName: string }[];
-  municipalities: { municipalityName: string }[];
-  tag: string;
-  blockCoordinatorId: any;
-}
-interface ReportRow {
-  helper: {
-    _id: string;
-    helperId: string;
-    name: string;
-    phone: string;
-    subDivision: string;
-    block: string;
-    gramPanchayat: string;
-    tag: string;
-  };
-  totalPatients: number;
-  totalIncentive: number;
-  pendingIncentive: number;
-  clearedIncentive: number;
-}
-interface Patient {
-  _id: string;
-  name: string;
-  mobile: string;
-  ipdNo: string;
-  doa: string;
-  incentiveAmount: number;
-  paymentStatus: string;
-  paymentDetail?: any;
-  aadharNumber?: string;
-  pincode?: string;
-  swasthaSathNumber?: string;
-  dischargeStatus?: string;
-  blockingAmount?: number;
-  dischargeAmount?: number;
-  dischargeDate?: string;
-  helperId: {
-    _id: string;
-    name: string;
-    block: string;
-    subDivision: string;
-    gramPanchayats: any[];
-    tag: string;
-  };
-  address?: any;
-}
-type IdFilterType = "all" | "with" | "without";
 type Role = "admin" | "receptionist" | "block-coordinator" | null;
-type TabType = "coordinator" | "helper" | "patient";
+type SortDir = "asc" | "desc";
 
-const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 const MONTHS = [
   { val: "01", label: "January" },
   { val: "02", label: "February" },
@@ -103,475 +20,535 @@ const MONTHS = [
   { val: "11", label: "November" },
   { val: "12", label: "December" },
 ];
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-const selStyle: React.CSSProperties = {
-  fontSize: 13,
-  padding: "7px 10px",
-  borderRadius: "var(--radius-sm)",
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  minWidth: 130,
-};
-const labelStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: "var(--text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  marginBottom: 4,
-  display: "block",
-};
+interface BCPerf {
+  _id: string;
+  coordinatorId: string;
+  name: string;
+  phone: string;
+  subDivision: string;
+  blocks: string[];
+  address: string;
+  sbCount: number;
+  totalPatients: number;
+  totalIncentive: number;
+  pendingIncentive: number;
+  clearedIncentive: number;
+}
+interface SBPerf {
+  helper: {
+    _id: string;
+    helperId: string;
+    name: string;
+    phone: string;
+    subDivision: string;
+    block: string;
+    gramPanchayat: string;
+    tag: string;
+    blockCoordinatorId?: { _id: string; name: string; coordinatorId: string };
+  };
+  totalPatients: number;
+  totalIncentive: number;
+  pendingIncentive: number;
+  clearedIncentive: number;
+}
+
+// Searchable dropdown
+function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const filtered = options.filter(
+    (o) => !q || o.label.toLowerCase().includes(q.toLowerCase()),
+  );
+  const selected = options.find((o) => o.value === value);
+  return (
+    <div ref={ref} style={{ position: "relative", minWidth: 160 }}>
+      <div
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "7px 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface)",
+          cursor: "pointer",
+          fontSize: 13,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            color: selected ? "var(--text)" : "var(--text-muted)",
+          }}
+        >
+          {selected ? selected.label : placeholder}
+        </span>
+        {value && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+              setQ("");
+            }}
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </span>
+        )}
+        <span style={{ color: "var(--text-muted)", fontSize: 10 }}>▾</span>
+      </div>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 300,
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface)",
+            boxShadow: "var(--shadow-md)",
+            maxHeight: 220,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <input
+            autoFocus
+            className="form-input"
+            placeholder="Search..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            style={{ margin: 6, fontSize: 12, padding: "5px 8px" }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div style={{ overflowY: "auto", maxHeight: 160 }}>
+            <div
+              onMouseDown={() => {
+                onChange("");
+                setQ("");
+                setOpen(false);
+              }}
+              style={{
+                padding: "8px 12px",
+                fontSize: 13,
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                borderBottom: "1px solid var(--gray-100)",
+              }}
+            >
+              All
+            </div>
+            {filtered.map((o) => (
+              <div
+                key={o.value}
+                onMouseDown={() => {
+                  onChange(o.value);
+                  setQ("");
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  borderBottom: "1px solid var(--gray-100)",
+                  background: o.value === value ? "var(--green-light)" : "",
+                  fontWeight: o.value === value ? 500 : 400,
+                }}
+              >
+                {o.label}
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                }}
+              >
+                No results
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortTh({
+  label,
+  k,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  k: string;
+  sortKey: string;
+  sortDir: SortDir;
+  onSort: (k: string) => void;
+}) {
+  return (
+    <th
+      onClick={() => onSort(k)}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+    >
+      {label}{" "}
+      {sortKey === k ? (
+        sortDir === "asc" ? (
+          "↑"
+        ) : (
+          "↓"
+        )
+      ) : (
+        <span style={{ opacity: 0.3 }}>↕</span>
+      )}
+    </th>
+  );
+}
 
 export default function ViewPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const now = new Date();
+
+  // Read month from URL if present
+  const initMonth = searchParams.get("month");
+  const initYear = initMonth
+    ? initMonth.split("-")[0]
+    : String(now.getFullYear());
+  const initMon = initMonth
+    ? initMonth.split("-")[1]
+    : String(now.getMonth() + 1).padStart(2, "0");
+
   const [role, setRole] = useState<Role>(null);
-  const [bcUserId, setBcUserId] = useState<string | null>(null); // BC's own _id
   const [mounted, setMounted] = useState(false);
+  const [selYear, setSelYear] = useState(initYear);
+  const [selMonth, setSelMonth] = useState(initMon);
 
-  // Default tab based on role
-  const [activeTab, setActiveTab] = useState<TabType>("patient");
-  const [selYear, setSelYear] = useState(String(now.getFullYear()));
-  const [selMonth, setSelMonth] = useState(
-    String(now.getMonth() + 1).padStart(2, "0"),
+  // Active section: "bc" | "sb" | "patient"
+  const [activeSection, setActiveSection] = useState<"bc" | "sb" | "patient">(
+    "bc",
   );
 
-  const [locations, setLocations] = useState<SubDiv[]>([]);
-  const [selSDId, setSelSDId] = useState("");
-  const [selBlockId, setSelBlockId] = useState("");
-  const [locFilterType, setLocFilterType] = useState<"gp" | "municipality">(
-    "gp",
-  );
-  const [selGPId, setSelGPId] = useState("");
-  const [selMunId, setSelMunId] = useState("");
-  const [selBCId, setSelBCId] = useState("");
-  const [selHelperId, setSelHelperId] = useState("");
-  const [dischargeFilter, setDischargeFilter] = useState("");
-  const [patientSearch, setPatientSearch] = useState("");
-  const [idFilter, setIdFilter] = useState<IdFilterType>("all");
+  // BC data
+  const [bcPerf, setBcPerf] = useState<BCPerf[]>([]);
+  const [bcSearch, setBcSearch] = useState("");
+  const [bcSDFilter, setBcSDFilter] = useState("");
+  const [bcBlockFilter, setBcBlockFilter] = useState("");
+  const [bcSortKey, setBcSortKey] = useState("name");
+  const [bcSortDir, setBcSortDir] = useState<SortDir>("asc");
 
-  const [helpers, setHelpers] = useState<Helper[]>([]);
-  const [blockCoordinators, setBlockCoordinators] = useState<BC[]>([]);
-  const [helperReport, setHelperReport] = useState<ReportRow[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
+  // SB data
+  const [sbPerf, setSbPerf] = useState<SBPerf[]>([]);
+  const [sbSearch, setSbSearch] = useState("");
+  const [sbBCFilter, setSbBCFilter] = useState("");
+  const [sbSDFilter, setSbSDFilter] = useState("");
+  const [sbNoId, setSbNoId] = useState(false);
+  const [sbSortKey, setSbSortKey] = useState("name");
+  const [sbSortDir, setSbSortDir] = useState<SortDir>("asc");
+
+  // Patient data — for stats only on main page
+  const [patientStats, setPatientStats] = useState({
+    total: 0,
+    admitted: 0,
+    continued: 0,
+    transferred: 0,
+  });
+
   const [loading, setLoading] = useState(false);
 
-  // Detect role from cookie on client
+  // Sync year/month from URL whenever searchParams changes
+  useEffect(() => {
+    const month = searchParams.get("month");
+    if (month) {
+      const [y, m] = month.split("-");
+      if (y) setSelYear(y);
+      if (m) setSelMonth(m);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     setMounted(true);
-    // Read role from cookie (set by login)
     const cookies = document.cookie
       .split(";")
       .reduce<Record<string, string>>((acc, c) => {
         const [k, v] = c.trim().split("=");
-        acc[k] = v;
+        acc[k] = decodeURIComponent(v || "");
         return acc;
       }, {});
-    // role_hint cookie is set at login for client-side use (non-sensitive)
     const r = (cookies["role_hint"] || null) as Role;
-    const bcId = cookies["bc_id"] || null;
     setRole(r);
-    setBcUserId(bcId);
-
-    // Set default tab based on role
-    if (r === "admin") setActiveTab("coordinator");
-    else if (r === "block-coordinator") setActiveTab("helper");
-    else if (r === "receptionist") setActiveTab("patient");
-    else setActiveTab("patient");
-
-    // If BC, auto-lock their BC filter
-    if (r === "block-coordinator" && bcId) setSelBCId(bcId);
+    if (r === "receptionist") setActiveSection("sb");
+    else setActiveSection("bc");
   }, []);
 
   useEffect(() => {
-    fetch("/api/locations")
-      .then((r) => r.json())
-      .then((d) => setLocations(Array.isArray(d) ? d : []));
-    // BC: fetch only own helpers (server enforces via JWT); others: fetch all
-    fetch("/api/helpers")
-      .then((r) => r.json())
-      .then((d) => setHelpers(Array.isArray(d) ? d : []));
-    if (role === "admin") {
-      fetch("/api/block-coordinators")
-        .then((r) => r.json())
-        .then((d) => setBlockCoordinators(Array.isArray(d) ? d : []));
-    }
-  }, [role]);
+    if (!mounted) return;
+    loadAll();
+  }, [mounted, selYear, selMonth]);
 
-  useEffect(() => {
-    if (activeTab === "helper") loadHelperReport();
-    else if (activeTab === "patient") loadPatients();
-  }, [
-    activeTab,
-    selYear,
-    selMonth,
-    selSDId,
-    selBlockId,
-    selGPId,
-    selMunId,
-    selHelperId,
-    selBCId,
-  ]);
-
-  const selectedSD = locations.find((sd) => sd._id === selSDId);
-  const selectedBlock = selectedSD?.blocks.find((b) => b._id === selBlockId);
-  const sdName = selectedSD?.name || "";
-  const blockName = selectedBlock?.name || "";
-  const gpName =
-    selectedBlock?.gramPanchayats.find((g) => g._id === selGPId)?.name || "";
-  const munName =
-    selectedBlock?.municipalities.find((m) => m._id === selMunId)?.name || "";
-
-  const filteredHelpers = helpers.filter((h) => {
-    if (selBCId) {
-      const bcId =
-        typeof h.blockCoordinatorId === "object"
-          ? h.blockCoordinatorId?._id
-          : h.blockCoordinatorId;
-      if (bcId?.toString() !== selBCId) return false;
-    }
-    if (sdName && h.subDivision !== sdName) return false;
-    if (blockName && h.block !== blockName) return false;
-    return true;
-  });
-
-  const filteredBCs = selSDId
-    ? blockCoordinators.filter((bc) => bc.subDivision === sdName)
-    : blockCoordinators;
-
-  async function loadHelperReport() {
+  async function loadAll() {
     setLoading(true);
-    const params = new URLSearchParams({ month: `${selYear}-${selMonth}` });
-    if (sdName) params.set("subDivision", sdName);
-    if (blockName) params.set("block", blockName);
-    if (gpName) params.set("gramPanchayat", gpName);
-    if (selHelperId) params.set("helperId", selHelperId);
-    const data = await fetch(`/api/reports?${params}`).then((r) => r.json());
-    let rows = Array.isArray(data) ? data : [];
-    if (selBCId) {
-      const bcHelperIds = helpers
-        .filter((h) => {
-          const bcId =
-            typeof h.blockCoordinatorId === "object"
-              ? h.blockCoordinatorId?._id
-              : h.blockCoordinatorId;
-          return bcId?.toString() === selBCId;
-        })
-        .map((h) => h._id);
-      rows = rows.filter((r: ReportRow) => bcHelperIds.includes(r.helper._id));
-    }
-    setHelperReport(rows);
-    setLoading(false);
-  }
-
-  async function loadPatients() {
-    setLoading(true);
-    const params = new URLSearchParams({ month: `${selYear}-${selMonth}` });
-    if (selHelperId) params.set("helperId", selHelperId);
-    let data = await fetch(`/api/patients?${params}`).then((r) => r.json());
-    if (!Array.isArray(data)) data = [];
-    if (sdName)
-      data = data.filter((p: Patient) => p.helperId?.subDivision === sdName);
-    if (blockName)
-      data = data.filter((p: Patient) => p.helperId?.block === blockName);
-    if (gpName)
-      data = data.filter(
-        (p: Patient) =>
-          p.address?.gramPanchayat === gpName ||
-          p.helperId?.gramPanchayats?.some((g: any) => g.gpName === gpName),
-      );
-    if (munName)
-      data = data.filter((p: Patient) => p.address?.municipality === munName);
-    if (selBCId) {
-      const bcHelperIds = helpers
-        .filter((h) => {
-          const bcId =
-            typeof h.blockCoordinatorId === "object"
-              ? h.blockCoordinatorId?._id
-              : h.blockCoordinatorId;
-          return bcId?.toString() === selBCId;
-        })
-        .map((h) => h._id);
-      data = data.filter((p: Patient) =>
-        bcHelperIds.includes((p.helperId as any)?._id || p.helperId),
-      );
-    }
-    setPatients(data);
-    setLoading(false);
-  }
-
-  function resetFilters() {
-    setSelSDId("");
-    setSelBlockId("");
-    setSelGPId("");
-    setSelMunId("");
-    setSelHelperId("");
-    setDischargeFilter("");
-    setPatientSearch("");
-    setIdFilter("all");
-    // BC can't reset their own BC filter
-    if (role !== "block-coordinator") setSelBCId("");
-  }
-
-  const displayBCs = selBCId
-    ? blockCoordinators.filter((bc) => bc._id === selBCId)
-    : selSDId
-      ? blockCoordinators.filter((bc) => bc.subDivision === sdName)
-      : blockCoordinators;
-
-  // Filter helperReport by noId
-  const displayHelperReport = helperReport.filter((row) => {
-    if (idFilter === "with") return !!row.helper.helperId;
-    if (idFilter === "without") return !row.helper.helperId;
-    return true;
-  });
-
-  const displayPatients = patients
-    .filter(
-      (p) =>
-        !dischargeFilter ||
-        (p.dischargeStatus || "admitted") === dischargeFilter,
-    )
-    .filter((p) => {
-      if (!patientSearch) return true;
-      const q = patientSearch.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.mobile.includes(q) ||
-        p.ipdNo.toLowerCase().includes(q) ||
-        (p.helperId as any)?.name?.toLowerCase().includes(q)
-      );
-    });
-
-  const totalPatients =
-    activeTab === "helper"
-      ? displayHelperReport.reduce((s, r) => s + r.totalPatients, 0)
-      : displayPatients.length;
-  const totalIncentive =
-    activeTab === "helper"
-      ? displayHelperReport.reduce((s, r) => s + r.totalIncentive, 0)
-      : displayPatients.reduce((s, p) => s + p.incentiveAmount, 0);
-  const pendingAmount =
-    activeTab === "helper"
-      ? displayHelperReport.reduce((s, r) => s + r.pendingIncentive, 0)
-      : displayPatients
-          .filter((p) => p.paymentStatus === "pending")
-          .reduce((s, p) => s + p.incentiveAmount, 0);
-
-  function getBCStats(bc: BC) {
-    const bcSBs = helpers.filter((h) => {
-      const bcId =
-        typeof h.blockCoordinatorId === "object"
-          ? h.blockCoordinatorId?._id
-          : h.blockCoordinatorId;
-      return bcId?.toString() === bc._id;
-    });
-    const sbIds = bcSBs.map((h) => h._id);
-    return {
-      sbCount: bcSBs.length,
-      patientCount:
-        patients.length > 0
-          ? patients.filter((p) => sbIds.includes((p.helperId as any)?._id))
-              .length
-          : "—",
-    };
-  }
-
-  // Export functions
-  function exportBCs() {
-    const rows = displayBCs.map((bc) => {
-      const stats = getBCStats(bc);
-      return {
-        "Coordinator ID": bc.coordinatorId,
-        Name: bc.name,
-        Phone: bc.phone,
-        "Sub Division": bc.subDivision,
-        Blocks: bc.blocks.join(", "),
-        Address: bc.address,
-        "SB Count": stats.sbCount,
-      };
-    });
-    writeXlsx(rows, "BlockCoordinators");
-  }
-
-  function exportHelpers() {
-    const monthLabel =
-      MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
-    const sheetName =
-      idFilter === "without"
-        ? `SB_Without_ID_${monthLabel}_${selYear}`
-        : `SwasthyaBondhu_${monthLabel}_${selYear}`;
-    const rows = displayHelperReport.map((row) => ({
-      "SB ID": row.helper.helperId || "—",
-      Name: row.helper.name,
-      Phone: row.helper.phone,
-      "Sub Division": row.helper.subDivision,
-      Block: row.helper.block,
-      "Gram Panchayat": row.helper.gramPanchayat,
-      Tag: row.helper.tag,
-      "Total Patients": row.totalPatients,
-      "Total Incentive (₹)": row.totalIncentive,
-      "Pending (₹)": row.pendingIncentive,
-      "Cleared (₹)": row.clearedIncentive,
-    }));
-    writeXlsx(rows, sheetName);
-  }
-
-  function exportPatients() {
-    const monthLabel =
-      MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
-    const isAdmin = role === "admin";
-    const rows = displayPatients.map((p) => {
-      const base: any = {
-        "Patient Name": p.name,
-        Mobile: p.mobile,
-        "IPD No.": p.ipdNo,
-        "Date of Admission": new Date(p.doa).toLocaleDateString("en-IN"),
-        "Aadhar Number": p.aadharNumber || "",
-        "Swastha Sath No.": p.swasthaSathNumber || "",
-        Pincode: p.pincode || "",
-        "Helper Name": (p.helperId as any)?.name || "",
-        "Sub Division": (p.helperId as any)?.subDivision || "",
-        Block: (p.helperId as any)?.block || "",
-        "Address Type":
-          p.address?.type === "gp"
-            ? "Gram Panchayat"
-            : p.address?.type === "municipality"
-              ? "Municipality"
-              : "",
-        "GP / Municipality":
-          p.address?.type === "gp"
-            ? p.address?.gramPanchayat
-            : p.address?.municipality || "",
-        "Village / Ward":
-          p.address?.type === "gp" ? p.address?.village : p.address?.ward || "",
-        "Discharge Status":
-          p.dischargeStatus === "continued"
-            ? "Continued"
-            : p.dischargeStatus === "transferred"
-              ? "Transferred"
-              : "Admitted",
-        "Discharge Date": p.dischargeDate
-          ? new Date(p.dischargeDate).toLocaleDateString("en-IN")
-          : "",
-      };
-      // Admin & BC see payment/incentive columns
-      if (isAdmin || role === "block-coordinator") {
-        base["Incentive (₹)"] = p.incentiveAmount;
-        base["Payment Status"] =
-          p.paymentStatus === "clearance" ? "Clearance" : "Pending";
-        base["Payment Mode"] =
-          p.paymentDetail?.mode === "cash"
-            ? "Cash"
-            : p.paymentDetail?.mode === "online"
-              ? "Online"
-              : "";
-        base["Blocking Amount (₹)"] = p.blockingAmount || "";
-        base["Discharge Amount (₹)"] = p.dischargeAmount || "";
-        base["Remarks"] = p.paymentDetail?.remarks || "";
+    try {
+      const month = `${selYear}-${selMonth}`;
+      const [bcRes, sbRes, patRes] = await Promise.all([
+        fetch(`/api/bc-performance?month=${month}`),
+        fetch(`/api/reports?month=${month}`),
+        fetch(`/api/patients?month=${month}`),
+      ]);
+      if (bcRes.ok)
+        setBcPerf(await bcRes.json().then((d) => (Array.isArray(d) ? d : [])));
+      if (sbRes.ok)
+        setSbPerf(
+          await sbRes
+            .json()
+            .then((d) =>
+              Array.isArray(d) ? d.filter((r: SBPerf) => r.helper) : [],
+            ),
+        );
+      if (patRes.ok) {
+        const pats = await patRes
+          .json()
+          .then((d) => (Array.isArray(d) ? d : []));
+        setPatientStats({
+          total: pats.length,
+          admitted: pats.filter(
+            (p: any) => !p.dischargeStatus || p.dischargeStatus === "admitted",
+          ).length,
+          continued: pats.filter((p: any) => p.dischargeStatus === "continued")
+            .length,
+          transferred: pats.filter(
+            (p: any) => p.dischargeStatus === "transferred",
+          ).length,
+        });
       }
-      return base;
-    });
-    writeXlsx(rows, `Patients_${monthLabel}_${selYear}`);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function writeXlsx(rows: any[], sheetName: string) {
+  const isAdmin = role === "admin";
+  const isBC = role === "block-coordinator";
+  const isReception = role === "receptionist";
+
+  // ── BC computed ──────────────────────────────────────────────────────────
+  const uniqueBCSubDivs = Array.from(
+    new Set(bcPerf.map((bc) => bc.subDivision)),
+  ).sort();
+  const uniqueBCBlocks = Array.from(
+    new Set(bcPerf.flatMap((bc) => bc.blocks)),
+  ).sort();
+  function toggleBCSort(k: string) {
+    if (bcSortKey === k) setBcSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setBcSortKey(k);
+      setBcSortDir("asc");
+    }
+  }
+  const displayBCs = bcPerf
+    .filter((bc) => {
+      if (bcSDFilter && bc.subDivision !== bcSDFilter) return false;
+      if (bcBlockFilter && !bc.blocks.includes(bcBlockFilter)) return false;
+      if (!bcSearch) return true;
+      const q = bcSearch.toLowerCase();
+      return (
+        bc.name.toLowerCase().includes(q) ||
+        bc.coordinatorId.toLowerCase().includes(q) ||
+        bc.phone.includes(q) ||
+        bc.subDivision.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const va = (a as any)[bcSortKey] ?? "";
+      const vb = (b as any)[bcSortKey] ?? "";
+      const r =
+        typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return bcSortDir === "asc" ? r : -r;
+    });
+
+  // ── SB computed ──────────────────────────────────────────────────────────
+  const uniqueSBSubDivs = Array.from(
+    new Set(sbPerf.map((r) => r.helper.subDivision)),
+  ).sort();
+  function toggleSBSort(k: string) {
+    if (sbSortKey === k) setSbSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSbSortKey(k);
+      setSbSortDir("asc");
+    }
+  }
+  const displaySBs = sbPerf
+    .filter((row) => {
+      if (sbNoId && row.helper.helperId) return false;
+      if (sbSDFilter && row.helper.subDivision !== sbSDFilter) return false;
+      if (sbBCFilter) {
+        const bcId =
+          typeof row.helper.blockCoordinatorId === "object"
+            ? row.helper.blockCoordinatorId?._id
+            : row.helper.blockCoordinatorId;
+        if (bcId?.toString() !== sbBCFilter) return false;
+      }
+      if (!sbSearch) return true;
+      const q = sbSearch.toLowerCase();
+      return (
+        row.helper.name.toLowerCase().includes(q) ||
+        row.helper.phone.includes(q) ||
+        (row.helper.helperId || "").toLowerCase().includes(q) ||
+        row.helper.block.toLowerCase().includes(q) ||
+        row.helper.gramPanchayat.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      let va: any, vb: any;
+      if (sbSortKey === "name") {
+        va = a.helper.name;
+        vb = b.helper.name;
+      } else if (sbSortKey === "block") {
+        va = a.helper.block;
+        vb = b.helper.block;
+      } else if (sbSortKey === "totalPatients") {
+        va = a.totalPatients;
+        vb = b.totalPatients;
+      } else if (sbSortKey === "totalIncentive") {
+        va = a.totalIncentive;
+        vb = b.totalIncentive;
+      } else {
+        va = a.helper.helperId || "";
+        vb = b.helper.helperId || "";
+      }
+      const r =
+        typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return sbSortDir === "asc" ? r : -r;
+    });
+
+  // ── Export ───────────────────────────────────────────────────────────────
+  function writeXlsx(rows: any[], name: string) {
     if (!rows.length) return;
     const ws = XLSX.utils.json_to_sheet(rows);
-    const cols = Object.keys(rows[0] || {}).map((k) => ({
+    ws["!cols"] = Object.keys(rows[0]).map((k) => ({
       wch: Math.max(k.length, 14),
     }));
-    ws["!cols"] = cols;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
-    XLSX.writeFile(wb, `${sheetName}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+    XLSX.writeFile(wb, `${name}.xlsx`);
   }
 
   function handleExport() {
-    if (activeTab === "coordinator") exportBCs();
-    else if (activeTab === "helper") exportHelpers();
-    else exportPatients();
+    const mon = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
+    if (activeSection === "bc") {
+      writeXlsx(
+        displayBCs.map((bc) => ({
+          "BC ID": bc.coordinatorId,
+          Name: bc.name,
+          Phone: bc.phone,
+          "Sub Division": bc.subDivision,
+          Blocks: bc.blocks.join(", "),
+          "SB Count": bc.sbCount,
+          "Total Patients": bc.totalPatients,
+          "Total ₹": bc.totalIncentive,
+          "Pending ₹": bc.pendingIncentive,
+          "Cleared ₹": bc.clearedIncentive,
+        })),
+        `BlockCoordinators_${mon}_${selYear}`,
+      );
+    } else if (activeSection === "sb") {
+      const name = sbNoId
+        ? `SB_Without_ID_${mon}_${selYear}`
+        : `SwasthyaBondhu_${mon}_${selYear}`;
+      writeXlsx(
+        displaySBs.map((row) => ({
+          "SB ID": row.helper.helperId || "—",
+          Name: row.helper.name,
+          Phone: row.helper.phone,
+          "Sub Division": row.helper.subDivision,
+          Block: row.helper.block,
+          GP: row.helper.gramPanchayat,
+          Patients: row.totalPatients,
+          "Total ₹": row.totalIncentive,
+          "Pending ₹": row.pendingIncentive,
+          "Cleared ₹": row.clearedIncentive,
+        })),
+        name,
+      );
+    }
   }
 
-  const hasFilters =
-    selSDId ||
-    selBlockId ||
-    selGPId ||
-    selMunId ||
-    selHelperId ||
-    (role !== "block-coordinator" && selBCId) ||
-    dischargeFilter ||
-    patientSearch ||
-    idFilter;
-
-  // Role-based: which tabs are visible
-  const showCoordinatorTab = role === "admin";
-  const showHelperTab =
-    role === "admin" || role === "block-coordinator" || role === "receptionist";
-  const showPaymentCols = role === "admin" || role === "block-coordinator";
-
-  // Back link based on role
-  const backLink =
-    role === "admin"
-      ? "/admin"
-      : role === "receptionist"
-        ? "/reception"
-        : role === "block-coordinator"
-          ? "/block-coordinator"
-          : "/login";
-  const backLabel =
-    role === "admin"
-      ? "← Admin Panel"
-      : role === "receptionist"
-        ? "← Reception"
-        : role === "block-coordinator"
-          ? "← My Panel"
-          : "← Login";
-  const roleLabel =
-    role === "admin"
-      ? "Admin"
-      : role === "receptionist"
-        ? "Receptionist"
-        : role === "block-coordinator"
-          ? "Block Coordinator"
-          : "";
+  const backLink = isAdmin
+    ? "/admin"
+    : isBC
+      ? "/block-coordinator"
+      : "/reception";
+  const backLabel = isAdmin
+    ? "← Admin Panel"
+    : isBC
+      ? "← My Panel"
+      : "← Reception";
+  const roleLabel = isAdmin
+    ? "Admin"
+    : isBC
+      ? "Block Coordinator"
+      : "Receptionist";
 
   if (!mounted) return null;
+
+  const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
       {/* Header */}
       <header
         style={{
-          background: "var(--green-dark, #0f4f30)",
+          background: "var(--green-dark)",
           padding: "14px 28px",
           display: "flex",
-          flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: 12,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               borderRadius: "50%",
               background: "rgba(255,255,255,0.15)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 24,
-              flexShrink: 0,
+              fontSize: 22,
             }}
           >
             🏥
@@ -580,7 +557,7 @@ export default function ViewPage() {
             <h1
               style={{
                 color: "#fff",
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: 600,
                 margin: 0,
               }}
@@ -594,38 +571,31 @@ export default function ViewPage() {
                 marginTop: 2,
               }}
             >
-              Sankalpa Bharat Mission — Reports & View
+              Reports & View — {monLabel} {selYear}
             </p>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {roleLabel && (
-            <span
-              style={{
-                background: "rgba(255,255,255,0.15)",
-                color: "#fff",
-                fontSize: 12,
-                padding: "4px 12px",
-                borderRadius: 20,
-                fontWeight: 500,
-              }}
-            >
-              {roleLabel}
-            </span>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              color: "#fff",
+              fontSize: 12,
+              padding: "4px 12px",
+              borderRadius: 20,
+            }}
+          >
+            {roleLabel}
+          </span>
           <a
             href={backLink}
             style={{
-              background: "transparent",
               border: "1px solid rgba(255,255,255,0.5)",
               color: "#fff",
-              padding: "8px 20px",
+              padding: "7px 18px",
               borderRadius: 30,
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: "pointer",
+              fontSize: 13,
               textDecoration: "none",
-              display: "inline-block",
             }}
           >
             {backLabel}
@@ -634,444 +604,480 @@ export default function ViewPage() {
       </header>
 
       <div style={{ padding: "20px 24px" }}>
-        {/* Tabs + Export */}
+        {/* ── YEAR / MONTH SELECTOR ── */}
         <div
           style={{
             display: "flex",
+            gap: 10,
             alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 18,
+            marginBottom: 20,
             flexWrap: "wrap",
-            gap: 12,
           }}
         >
-          <div
+          <select
             style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              flexWrap: "wrap",
+              fontSize: 13,
+              padding: "7px 10px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text)",
+            }}
+            value={selYear}
+            onChange={(e) => {
+              setSelYear(e.target.value);
+              router.replace(`/view?month=${e.target.value}-${selMonth}`);
             }}
           >
-            <div className="toggle-group">
-              {showCoordinatorTab && (
-                <button
-                  className={`toggle-btn ${activeTab === "coordinator" ? "active" : ""}`}
-                  onClick={() => setActiveTab("coordinator")}
-                >
-                  🗂 Block Coordinator
-                </button>
-              )}
-              {showHelperTab && (
-                <button
-                  className={`toggle-btn ${activeTab === "helper" ? "active" : ""}`}
-                  onClick={() => setActiveTab("helper")}
-                >
-                  👥 Swasthya Bondhu
-                </button>
-              )}
-              <button
-                className={`toggle-btn ${activeTab === "patient" ? "active" : ""}`}
-                onClick={() => setActiveTab("patient")}
-              >
-                🏥 Patients
-              </button>
-            </div>
-            <button
-              className="btn btn-secondary"
-              onClick={handleExport}
+            {YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <select
+            style={{
+              fontSize: 13,
+              padding: "7px 10px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text)",
+            }}
+            value={selMonth}
+            onChange={(e) => {
+              setSelMonth(e.target.value);
+              router.replace(`/view?month=${selYear}-${e.target.value}`);
+            }}
+          >
+            {MONTHS.map((m) => (
+              <option key={m.val} value={m.val}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-secondary"
+            onClick={handleExport}
+            style={{ fontSize: 13 }}
+          >
+            📥 Export Excel
+          </button>
+        </div>
+
+        {/* ── STAT CARDS ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            gap: 14,
+            marginBottom: 24,
+          }}
+        >
+          {isAdmin && (
+            <div
+              onClick={() => setActiveSection("bc")}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 13,
+                padding: "16px 20px",
+                background:
+                  activeSection === "bc"
+                    ? "var(--green-dark)"
+                    : "var(--surface)",
+                border: `2px solid ${activeSection === "bc" ? "var(--green-dark)" : "var(--border)"}`,
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                transition: "all 0.15s",
               }}
             >
-              📥 Export Excel
-            </button>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color:
+                    activeSection === "bc"
+                      ? "rgba(255,255,255,0.7)"
+                      : "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Block Coordinators
+              </div>
+              <div
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: activeSection === "bc" ? "#fff" : "var(--text)",
+                  marginTop: 4,
+                }}
+              >
+                {bcPerf.length}
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color:
+                    activeSection === "bc"
+                      ? "rgba(255,255,255,0.6)"
+                      : "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                Click to view list
+              </div>
+            </div>
+          )}
+          <div
+            onClick={() => setActiveSection("sb")}
+            style={{
+              padding: "16px 20px",
+              background:
+                activeSection === "sb" ? "var(--green-dark)" : "var(--surface)",
+              border: `2px solid ${activeSection === "sb" ? "var(--green-dark)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color:
+                  activeSection === "sb"
+                    ? "rgba(255,255,255,0.7)"
+                    : "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Swasthya Bondhu
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: activeSection === "sb" ? "#fff" : "var(--text)",
+                marginTop: 4,
+              }}
+            >
+              {sbPerf.length}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color:
+                  activeSection === "sb"
+                    ? "rgba(255,255,255,0.6)"
+                    : "var(--text-muted)",
+                marginTop: 2,
+              }}
+            >
+              Click to view list
+            </div>
           </div>
-
-          {/* Stats */}
-          {activeTab !== "coordinator" && (
-            <div style={{ display: "flex", gap: 20 }}>
-              {[
-                { label: "Total Patients", value: totalPatients },
-                ...(showPaymentCols
-                  ? [
-                      {
-                        label: "Total Incentive",
-                        value: `₹${totalIncentive.toLocaleString()}`,
-                      },
-                      {
-                        label: "Pending",
-                        value: `₹${pendingAmount.toLocaleString()}`,
-                        accent: true,
-                      },
-                    ]
-                  : []),
-              ].map((s: any) => (
-                <div key={s.label} style={{ textAlign: "right" }}>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    {s.label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 700,
-                      color: s.accent ? "var(--accent)" : "var(--text)",
-                    }}
-                  >
-                    {s.value}
-                  </div>
-                </div>
-              ))}
+          <div
+            onClick={() =>
+              router.push(`/view/patients?month=${selYear}-${selMonth}`)
+            }
+            style={{
+              padding: "16px 20px",
+              background: "var(--surface)",
+              border: "2px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Patients
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "var(--text)",
+                marginTop: 4,
+              }}
+            >
+              {patientStats.total}
+            </div>
+            <div
+              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+            >
+              View more →
+            </div>
+          </div>
+          {(isAdmin || isBC) && (
+            <div
+              style={{
+                padding: "16px 20px",
+                background: "var(--surface)",
+                border: "2px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Total Incentive
+              </div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  marginTop: 4,
+                }}
+              >
+                ₹
+                {bcPerf
+                  .reduce((s, bc) => s + bc.totalIncentive, 0)
+                  .toLocaleString()}
+              </div>
+              <div
+                style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}
+              >
+                Pending: ₹
+                {bcPerf
+                  .reduce((s, bc) => s + bc.pendingIncentive, 0)
+                  .toLocaleString()}
+              </div>
             </div>
           )}
         </div>
 
-        {/* FILTER BAR */}
-        <div
-          className="card"
-          style={{ padding: "14px 18px", marginBottom: 18 }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              alignItems: "flex-end",
-            }}
-          >
-            {/* Year + Month */}
-            {activeTab !== "coordinator" && (
-              <>
-                <div>
-                  <span style={labelStyle}>Year</span>
-                  <select
-                    style={selStyle}
-                    value={selYear}
-                    onChange={(e) => setSelYear(e.target.value)}
-                  >
-                    {YEARS.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <span style={labelStyle}>Month</span>
-                  <select
-                    style={selStyle}
-                    value={selMonth}
-                    onChange={(e) => setSelMonth(e.target.value)}
-                  >
-                    {MONTHS.map((m) => (
-                      <option key={m.val} value={m.val}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {/* Sub Division */}
-            <div>
-              <span style={labelStyle}>Sub Division</span>
-              <select
-                style={selStyle}
-                value={selSDId}
-                onChange={(e) => {
-                  setSelSDId(e.target.value);
-                  setSelBlockId("");
-                  setSelGPId("");
-                  setSelMunId("");
-                  if (role !== "block-coordinator") setSelBCId("");
-                  setSelHelperId("");
-                }}
-              >
-                <option value="">All</option>
-                {locations.map((sd) => (
-                  <option key={sd._id} value={sd._id}>
-                    {sd.name}
-                  </option>
-                ))}
-              </select>
+        {/* ── BC TABLE ── */}
+        {activeSection === "bc" && isAdmin && (
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 14,
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
+                Block Coordinators{" "}
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    fontWeight: 400,
+                  }}
+                >
+                  ({displayBCs.length})
+                </span>
+              </h3>
             </div>
-
-            {/* Block */}
-            <div>
-              <span style={labelStyle}>Block</span>
-              <select
-                style={selStyle}
-                value={selBlockId}
-                disabled={!selSDId}
-                onChange={(e) => {
-                  setSelBlockId(e.target.value);
-                  setSelGPId("");
-                  setSelMunId("");
-                  setSelHelperId("");
-                }}
-              >
-                <option value="">{selSDId ? "All Blocks" : "—"}</option>
-                {selectedSD?.blocks.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* GP / Municipality toggle */}
-            {activeTab !== "coordinator" && selBlockId && (
+            {/* Filters */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 14,
+                alignItems: "flex-end",
+              }}
+            >
               <div>
-                <span style={labelStyle}>Location</span>
                 <div
                   style={{
-                    display: "flex",
-                    gap: 0,
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    overflow: "hidden",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 4,
                   }}
                 >
-                  {["gp", "municipality"].map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => {
-                        setLocFilterType(t as any);
-                        setSelGPId("");
-                        setSelMunId("");
-                      }}
-                      style={{
-                        padding: "7px 10px",
-                        fontSize: 12,
-                        border: "none",
-                        cursor: "pointer",
-                        background:
-                          locFilterType === t
-                            ? "var(--green-mid)"
-                            : "var(--surface)",
-                        color:
-                          locFilterType === t ? "#fff" : "var(--text-muted)",
-                        fontWeight: locFilterType === t ? 600 : 400,
-                      }}
-                    >
-                      {t === "gp" ? "🌿 GP" : "🏙 Mun"}
-                    </button>
-                  ))}
+                  Search
                 </div>
+                <input
+                  className="form-input"
+                  placeholder="ID, name, phone..."
+                  value={bcSearch}
+                  onChange={(e) => setBcSearch(e.target.value)}
+                  style={{ width: 220, fontSize: 13 }}
+                />
               </div>
-            )}
-
-            {/* GP filter */}
-            {activeTab !== "coordinator" &&
-              selBlockId &&
-              locFilterType === "gp" && (
-                <div>
-                  <span style={labelStyle}>Gram Panchayat</span>
-                  <select
-                    style={selStyle}
-                    value={selGPId}
-                    onChange={(e) => {
-                      setSelGPId(e.target.value);
-                      setSelMunId("");
-                    }}
-                  >
-                    <option value="">All GPs</option>
-                    {selectedBlock?.gramPanchayats.map((g) => (
-                      <option key={g._id} value={g._id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-            {/* Municipality filter */}
-            {activeTab !== "coordinator" &&
-              selBlockId &&
-              locFilterType === "municipality" && (
-                <div>
-                  <span style={labelStyle}>Municipality</span>
-                  <select
-                    style={selStyle}
-                    value={selMunId}
-                    onChange={(e) => {
-                      setSelMunId(e.target.value);
-                      setSelGPId("");
-                    }}
-                  >
-                    <option value="">All Municipalities</option>
-                    {selectedBlock?.municipalities.map((m) => (
-                      <option key={m._id} value={m._id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-            {/* Block Coordinator — admin only */}
-            {role === "admin" && (
               <div>
-                <span style={labelStyle}>Block Coordinator</span>
-                <select
-                  style={{ ...selStyle, minWidth: 170 }}
-                  value={selBCId}
-                  onChange={(e) => {
-                    setSelBCId(e.target.value);
-                    setSelHelperId("");
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 4,
                   }}
                 >
-                  <option value="">All Coordinators</option>
-                  {filteredBCs.map((bc) => (
-                    <option key={bc._id} value={bc._id}>
-                      {bc.name} — {bc.subDivision}
-                    </option>
-                  ))}
-                </select>
+                  Sub Division
+                </div>
+                <SearchableSelect
+                  options={uniqueBCSubDivs.map((s) => ({ label: s, value: s }))}
+                  value={bcSDFilter}
+                  onChange={setBcSDFilter}
+                  placeholder="All Sub Divisions"
+                />
               </div>
-            )}
-
-            {/* Swasthya Bondhu */}
-            {activeTab !== "coordinator" && (
               <div>
-                <span style={labelStyle}>
-                  Swasthya Bondhu{" "}
-                  {selBCId && role === "admin" && (
-                    <span
-                      style={{ color: "var(--green-mid)", fontWeight: 400 }}
-                    >
-                      (filtered)
-                    </span>
-                  )}
-                </span>
-                <select
-                  style={{ ...selStyle, minWidth: 170 }}
-                  value={selHelperId}
-                  onChange={(e) => setSelHelperId(e.target.value)}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 4,
+                  }}
                 >
-                  <option value="">All</option>
-                  {filteredHelpers.map((h) => (
-                    <option key={h._id} value={h._id}>
-                      {h.name} — {h.block}
-                    </option>
-                  ))}
-                </select>
+                  Block
+                </div>
+                <SearchableSelect
+                  options={uniqueBCBlocks.map((s) => ({ label: s, value: s }))}
+                  value={bcBlockFilter}
+                  onChange={setBcBlockFilter}
+                  placeholder="All Blocks"
+                />
               </div>
-            )}
-
-            {/* Discharge filter — patient tab only */}
-            {activeTab === "patient" && (
-              <div>
-                <span style={labelStyle}>Discharge Status</span>
-                <select
-                  style={selStyle}
-                  value={dischargeFilter}
-                  onChange={(e) => setDischargeFilter(e.target.value)}
+              {(bcSearch || bcSDFilter || bcBlockFilter) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ alignSelf: "flex-end" }}
+                  onClick={() => {
+                    setBcSearch("");
+                    setBcSDFilter("");
+                    setBcBlockFilter("");
+                  }}
                 >
-                  <option value="">All</option>
-                  <option value="admitted">Admitted</option>
-                  <option value="continued">Continued</option>
-                  <option value="transferred">Transferred</option>
-                </select>
-              </div>
-            )}
-
-            {/* No ID filter — helper tab only */}
-            {activeTab === "helper" && (
-              <div>
-                <span style={labelStyle}>ID Filter</span>
-                <select
-                  style={selStyle}
-                  value={idFilter}
-                  onChange={(e) => setIdFilter(e.target.value as IdFilterType)}
-                >
-                  <option value="all">All</option>
-                  <option value="with">With ID</option>
-                  <option value="without">Without ID</option>
-                </select>
-              </div>
-            )}
-
-            {hasFilters && (
-              <button
-                className="btn btn-secondary btn-sm"
-                style={{ alignSelf: "flex-end" }}
-                onClick={resetFilters}
-              >
-                ✕ Reset
-              </button>
-            )}
-          </div>
-
-          {/* Patient search */}
-          {activeTab === "patient" && (
-            <div style={{ marginTop: 10 }}>
-              <input
-                className="form-input"
-                placeholder="🔍 Search patient by name, mobile, IPD No, or Swasthya Bondhu..."
-                value={patientSearch}
-                onChange={(e) => setPatientSearch(e.target.value)}
-                style={{ maxWidth: 480, fontSize: 13 }}
-              />
+                  ✕ Reset
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* TABLES */}
-        {loading ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 48,
-              color: "var(--text-muted)",
-            }}
-          >
-            Loading...
-          </div>
-        ) : activeTab === "coordinator" ? (
-          /* ── BLOCK COORDINATOR TABLE (admin only) ── */
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Sub Division</th>
-                  <th>Blocks</th>
-                  <th>SB Count</th>
-                  <th>Address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayBCs.length === 0 ? (
+            <div className="table-wrapper">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={7}>
-                      <div className="empty-state">
-                        <p>No block coordinators found.</p>
-                      </div>
-                    </td>
+                    <SortTh
+                      label="BC ID"
+                      k="coordinatorId"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <SortTh
+                      label="Name"
+                      k="name"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <th>Phone</th>
+                    <SortTh
+                      label="Sub Division"
+                      k="subDivision"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <th>Blocks</th>
+                    <SortTh
+                      label="SBs"
+                      k="sbCount"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <SortTh
+                      label="Patients"
+                      k="totalPatients"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <SortTh
+                      label="Total ₹"
+                      k="totalIncentive"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <SortTh
+                      label="Pending"
+                      k="pendingIncentive"
+                      sortKey={bcSortKey}
+                      sortDir={bcSortDir}
+                      onSort={toggleBCSort}
+                    />
+                    <th>Cleared</th>
                   </tr>
-                ) : (
-                  displayBCs.map((bc) => {
-                    const { sbCount } = getBCStats(bc);
-                    return (
-                      <tr key={bc._id}>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10}>
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: 32,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          Loading...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : displayBCs.length === 0 ? (
+                    <tr>
+                      <td colSpan={10}>
+                        <div className="empty-state">
+                          <p>No block coordinators found.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    displayBCs.map((bc) => (
+                      <tr
+                        key={bc._id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() =>
+                          router.push(
+                            `/view/bc/${bc._id}?month=${selYear}-${selMonth}`,
+                          )
+                        }
+                      >
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                           {bc.coordinatorId}
                         </td>
-                        <td style={{ fontWeight: 500 }}>{bc.name}</td>
+                        <td>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: "var(--green-dark)",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            {bc.name}
+                          </span>
+                        </td>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                           {bc.phone}
                         </td>
@@ -1092,81 +1098,262 @@ export default function ViewPage() {
                           </div>
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          <span className="badge badge-green">{sbCount}</span>
+                          <span className="badge badge-green">
+                            {bc.sbCount}
+                          </span>
                         </td>
-                        <td
-                          style={{ fontSize: 12, color: "var(--text-muted)" }}
-                        >
-                          {bc.address || "—"}
+                        <td style={{ textAlign: "center", fontWeight: 600 }}>
+                          {bc.totalPatients}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          ₹{bc.totalIncentive.toLocaleString()}
+                        </td>
+                        <td>
+                          <span className="badge badge-amber">
+                            ₹{bc.pendingIncentive.toLocaleString()}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge badge-green">
+                            ₹{bc.clearedIncentive.toLocaleString()}
+                          </span>
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : activeTab === "helper" ? (
-          /* ── SWASTHYA BONDHU TABLE ── */
-          <div className="table-wrapper">
-            {role === "block-coordinator" && (
-              <div
-                style={{
-                  padding: "10px 16px",
-                  background: "var(--green-light)",
-                  borderBottom: "1px solid var(--border)",
-                  fontSize: 13,
-                  color: "var(--green-dark)",
-                  fontWeight: 500,
-                }}
-              >
-                📋 Showing Swasthya Bondhu under your coordination only
-              </div>
-            )}
-            <table>
-              <thead>
-                <tr>
-                  <th>SB ID</th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Sub Division</th>
-                  <th>Block</th>
-                  <th>GP</th>
-                  <th>Tag</th>
-                  <th>Patients</th>
-                  {showPaymentCols && (
-                    <>
-                      <th>Total ₹</th>
-                      <th>Pending</th>
-                      <th>Cleared</th>
-                    </>
+                    ))
                   )}
-                </tr>
-              </thead>
-              <tbody>
-                {displayHelperReport.length === 0 ? (
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── SB TABLE ── */}
+        {activeSection === "sb" && (
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 14,
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
+                Swasthya Bondhu{" "}
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    fontWeight: 400,
+                  }}
+                >
+                  ({displaySBs.length})
+                </span>
+              </h3>
+            </div>
+            {/* Filters */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 14,
+                alignItems: "flex-end",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 4,
+                  }}
+                >
+                  Search
+                </div>
+                <input
+                  className="form-input"
+                  placeholder="ID, name, phone, block, GP..."
+                  value={sbSearch}
+                  onChange={(e) => setSbSearch(e.target.value)}
+                  style={{ width: 250, fontSize: 13 }}
+                />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 4,
+                  }}
+                >
+                  Sub Division
+                </div>
+                <SearchableSelect
+                  options={uniqueSBSubDivs.map((s) => ({ label: s, value: s }))}
+                  value={sbSDFilter}
+                  onChange={setSbSDFilter}
+                  placeholder="All Sub Divisions"
+                />
+              </div>
+              {isAdmin && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Block Coordinator
+                  </div>
+                  <SearchableSelect
+                    options={bcPerf.map((bc) => ({
+                      label: `${bc.name} — ${bc.subDivision}`,
+                      value: bc._id,
+                    }))}
+                    value={sbBCFilter}
+                    onChange={setSbBCFilter}
+                    placeholder="All BCs"
+                  />
+                </div>
+              )}
+              <div style={{ alignSelf: "flex-end" }}>
+                <button
+                  onClick={() => setSbNoId((v) => !v)}
+                  style={{
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: `2px solid ${sbNoId ? "var(--accent)" : "var(--border)"}`,
+                    borderRadius: "var(--radius-sm)",
+                    background: sbNoId ? "#fff3e0" : "var(--surface)",
+                    color: sbNoId ? "var(--accent)" : "var(--text-muted)",
+                    cursor: "pointer",
+                  }}
+                >
+                  🪪{" "}
+                  {sbNoId ? `Without ID (${displaySBs.length})` : "Without ID"}
+                </button>
+              </div>
+              {(sbSearch || sbSDFilter || sbBCFilter || sbNoId) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ alignSelf: "flex-end" }}
+                  onClick={() => {
+                    setSbSearch("");
+                    setSbSDFilter("");
+                    setSbBCFilter("");
+                    setSbNoId(false);
+                  }}
+                >
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+            <div className="table-wrapper">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={showPaymentCols ? 12 : 9}>
-                      <div className="empty-state">
-                        <p>
-                          {idFilter === "without"
-                            ? "All Swasthya Bondhu have IDs assigned."
-                            : "No data for selected filters."}
-                        </p>
-                      </div>
-                    </td>
+                    <SortTh
+                      label="SB ID"
+                      k="helperId"
+                      sortKey={sbSortKey}
+                      sortDir={sbSortDir}
+                      onSort={toggleSBSort}
+                    />
+                    <SortTh
+                      label="Name"
+                      k="name"
+                      sortKey={sbSortKey}
+                      sortDir={sbSortDir}
+                      onSort={toggleSBSort}
+                    />
+                    <th>Phone</th>
+                    <th>Sub Division</th>
+                    <SortTh
+                      label="Block"
+                      k="block"
+                      sortKey={sbSortKey}
+                      sortDir={sbSortDir}
+                      onSort={toggleSBSort}
+                    />
+                    <th>GP</th>
+                    {isAdmin && <th>Block Coordinator</th>}
+                    <SortTh
+                      label="Patients"
+                      k="totalPatients"
+                      sortKey={sbSortKey}
+                      sortDir={sbSortDir}
+                      onSort={toggleSBSort}
+                    />
+                    {(isAdmin || isBC) && (
+                      <>
+                        <SortTh
+                          label="Total ₹"
+                          k="totalIncentive"
+                          sortKey={sbSortKey}
+                          sortDir={sbSortDir}
+                          onSort={toggleSBSort}
+                        />
+                        <th>Pending</th>
+                        <th>Cleared</th>
+                      </>
+                    )}
                   </tr>
-                ) : (
-                  displayHelperReport
-                    .filter((row) => row.helper)
-                    .map((row) => (
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={12}>
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: 32,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          Loading...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : displaySBs.length === 0 ? (
+                    <tr>
+                      <td colSpan={12}>
+                        <div className="empty-state">
+                          <p>
+                            {sbNoId ? "All SBs have IDs." : "No data found."}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    displaySBs.map((row) => (
                       <tr
                         key={row.helper._id}
-                        style={
-                          !row.helper.helperId ? { background: "#fff8e1" } : {}
-                        }
+                        style={{
+                          cursor: "pointer",
+                          background: !row.helper.helperId ? "#fff8e1" : "",
+                        }}
                       >
-                        <td>
+                        <td
+                          onClick={() =>
+                            router.push(
+                              `/view/sb/${row.helper._id}?month=${selYear}-${selMonth}`,
+                            )
+                          }
+                        >
                           {row.helper.helperId ? (
                             <span
                               style={{ fontFamily: "monospace", fontSize: 12 }}
@@ -1185,7 +1372,23 @@ export default function ViewPage() {
                             </span>
                           )}
                         </td>
-                        <td style={{ fontWeight: 500 }}>{row.helper.name}</td>
+                        <td
+                          onClick={() =>
+                            router.push(
+                              `/view/sb/${row.helper._id}?month=${selYear}-${selMonth}`,
+                            )
+                          }
+                        >
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: "var(--green-dark)",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            {row.helper.name}
+                          </span>
+                        </td>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                           {row.helper.phone}
                         </td>
@@ -1196,15 +1399,40 @@ export default function ViewPage() {
                         <td style={{ fontSize: 12 }}>
                           {row.helper.gramPanchayat}
                         </td>
-                        <td>
-                          <span className="badge badge-green">
-                            {row.helper.tag}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "center", fontWeight: 600 }}>
+                        {isAdmin && (
+                          <td>
+                            {row.helper.blockCoordinatorId ? (
+                              <span
+                                onClick={() =>
+                                  router.push(
+                                    `/view/bc/${(row.helper.blockCoordinatorId as any)?._id}?month=${selYear}-${selMonth}`,
+                                  )
+                                }
+                                style={{
+                                  color: "var(--green-dark)",
+                                  textDecoration: "underline",
+                                  cursor: "pointer",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {(row.helper.blockCoordinatorId as any)?.name}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        )}
+                        <td
+                          style={{ textAlign: "center", fontWeight: 600 }}
+                          onClick={() =>
+                            router.push(
+                              `/view/sb/${row.helper._id}?month=${selYear}-${selMonth}`,
+                            )
+                          }
+                        >
                           {row.totalPatients}
                         </td>
-                        {showPaymentCols && (
+                        {(isAdmin || isBC) && (
                           <>
                             <td style={{ fontWeight: 600 }}>
                               ₹{row.totalIncentive.toLocaleString()}
@@ -1223,176 +1451,11 @@ export default function ViewPage() {
                         )}
                       </tr>
                     ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* ── PATIENT TABLE ── */
-          <>
-            {patients.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  marginBottom: 12,
-                  flexWrap: "wrap",
-                }}
-              >
-                {[
-                  {
-                    key: "",
-                    label: `All (${patients.length})`,
-                    color: "var(--text-muted)",
-                  },
-                  {
-                    key: "admitted",
-                    label: `Admitted (${patients.filter((p) => !p.dischargeStatus || p.dischargeStatus === "admitted").length})`,
-                    color: "var(--green)",
-                  },
-                  {
-                    key: "continued",
-                    label: `Continued (${patients.filter((p) => p.dischargeStatus === "continued").length})`,
-                    color: "#2563eb",
-                  },
-                  {
-                    key: "transferred",
-                    label: `Transferred (${patients.filter((p) => p.dischargeStatus === "transferred").length})`,
-                    color: "var(--red)",
-                  },
-                ].map((pill) => (
-                  <button
-                    key={pill.key}
-                    onClick={() => setDischargeFilter(pill.key)}
-                    style={{
-                      padding: "4px 12px",
-                      borderRadius: 20,
-                      fontSize: 12,
-                      fontWeight: dischargeFilter === pill.key ? 600 : 400,
-                      border: `1.5px solid ${dischargeFilter === pill.key ? pill.color : "var(--border)"}`,
-                      background:
-                        dischargeFilter === pill.key
-                          ? pill.color + "18"
-                          : "var(--surface)",
-                      color:
-                        dischargeFilter === pill.key
-                          ? pill.color
-                          : "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    alignSelf: "center",
-                  }}
-                >
-                  Showing {displayPatients.length}
-                </span>
-              </div>
-            )}
-
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>IPD</th>
-                    <th>DOA</th>
-                    <th>Swasthya Bondhu</th>
-                    <th>Address</th>
-                    {showPaymentCols && (
-                      <>
-                        <th>Incentive</th>
-                        <th>Payment</th>
-                      </>
-                    )}
-                    <th>Discharge</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayPatients.length === 0 ? (
-                    <tr>
-                      <td colSpan={showPaymentCols ? 8 : 6}>
-                        <div className="empty-state">
-                          <p>No patients found.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    displayPatients.map((p) => (
-                      <tr key={p._id}>
-                        <td>
-                          <div style={{ fontWeight: 500 }}>{p.name}</div>
-                          <div
-                            style={{ fontSize: 11, color: "var(--text-muted)" }}
-                          >
-                            {p.mobile}
-                          </div>
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                          {p.ipdNo}
-                        </td>
-                        <td style={{ fontSize: 12 }}>
-                          {new Date(p.doa).toLocaleDateString("en-IN")}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 500, fontSize: 13 }}>
-                            {(p.helperId as any)?.name}
-                          </div>
-                          <div
-                            style={{ fontSize: 11, color: "var(--text-muted)" }}
-                          >
-                            {(p.helperId as any)?.block}
-                          </div>
-                        </td>
-                        <td
-                          style={{ fontSize: 11, color: "var(--text-muted)" }}
-                        >
-                          {p.address?.type === "gp"
-                            ? `🌿 ${p.address.gramPanchayat}${p.address.village ? ` / ${p.address.village}` : ""}`
-                            : p.address?.type === "municipality"
-                              ? `🏙 ${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ""}`
-                              : "—"}
-                        </td>
-                        {showPaymentCols && (
-                          <>
-                            <td style={{ fontWeight: 600 }}>
-                              ₹{p.incentiveAmount}
-                            </td>
-                            <td>
-                              <span
-                                className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
-                              >
-                                {p.paymentStatus === "clearance"
-                                  ? "✓ Cleared"
-                                  : "⏳ Pending"}
-                              </span>
-                            </td>
-                          </>
-                        )}
-                        <td>
-                          <span
-                            className={`badge ${p.dischargeStatus === "continued" ? "badge-green" : p.dischargeStatus === "transferred" ? "badge-red" : "badge-gray"}`}
-                          >
-                            {p.dischargeStatus === "continued"
-                              ? "✓ Continued"
-                              : p.dischargeStatus === "transferred"
-                                ? "↗ Transferred"
-                                : "🏥 Admitted"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
                   )}
                 </tbody>
               </table>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

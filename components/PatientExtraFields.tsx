@@ -19,7 +19,7 @@ export default function PatientExtraFields({
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
       {/* Swastha Sath — required */}
       <div className="form-group">
-        <label className="form-label">Swastha Sath Number *</label>
+        <label className="form-label">Swasthya Sathi Card No. *</label>
         <input
           className="form-input"
           required
@@ -31,31 +31,7 @@ export default function PatientExtraFields({
 
       {/* Pincode — optional */}
       <div className="form-group">
-        <label className="form-label">
-          Pincode{" "}
-          <span
-            style={{
-              fontWeight: 400,
-              fontSize: 11,
-              color: "var(--text-muted)",
-            }}
-          >
-            (optional)
-          </span>
-        </label>
-        <input
-          className="form-input"
-          value={pincode}
-          onChange={(e) =>
-            onChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          placeholder="6-digit pincode"
-          maxLength={6}
-        />
-      </div>
-
-      {/* Aadhar — required, full width */}
-      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+        {" "}
         <label className="form-label">
           Aadhar Number *{" "}
           <span
@@ -95,6 +71,31 @@ export default function PatientExtraFields({
             ✓ Valid Aadhar number
           </div>
         )}
+      </div>
+
+      {/* Aadhar — required, full width */}
+      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+        <label className="form-label">
+          Pincode{" "}
+          <span
+            style={{
+              fontWeight: 400,
+              fontSize: 11,
+              color: "var(--text-muted)",
+            }}
+          >
+            (optional)
+          </span>
+        </label>
+        <input
+          className="form-input"
+          value={pincode}
+          onChange={(e) =>
+            onChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
+          }
+          placeholder="6-digit pincode"
+          maxLength={6}
+        />
       </div>
     </div>
   );

@@ -14,12 +14,21 @@ export async function GET(req: NextRequest) {
   const month = searchParams.get("month"); // YYYY-MM
   const helperId = searchParams.get("helperId");
 
+  // End of selected month — SBs created BEFORE this are shown
+  let endOfMonth: Date | null = null;
+  if (month) {
+    const [year, m] = month.split("-").map(Number);
+    endOfMonth = new Date(year, m, 1); // start of next month
+  }
+
   // Build helper filter
   const helperFilter: any = {};
   if (subDivision) helperFilter.subDivision = subDivision;
   if (block) helperFilter.block = block;
   if (gramPanchayat) helperFilter.gramPanchayat = gramPanchayat;
   if (helperId) helperFilter._id = helperId;
+  // Filter SBs created up to end of selected month
+  if (endOfMonth) helperFilter.createdAt = { $lt: endOfMonth };
 
   // BC: restrict to own helpers only — enforced server-side via JWT
   if (auth?.role === "block-coordinator" && auth.id) {
@@ -29,7 +38,7 @@ export async function GET(req: NextRequest) {
   const helpers = await Helper.find(helperFilter);
   const helperIds = helpers.map((h) => h._id);
 
-  // Build patient filter
+  // Patients — only within selected month (DOA)
   const patientFilter: any = { helperId: { $in: helperIds } };
   if (month) {
     const [year, m] = month.split("-").map(Number);

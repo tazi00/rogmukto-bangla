@@ -66,14 +66,12 @@ function FreeTypeSelect({
   onChange,
   suggestions,
   placeholder,
-  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   suggestions: string[];
   placeholder: string;
-  disabled?: boolean;
 }) {
   const [show, setShow] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -90,7 +88,6 @@ function FreeTypeSelect({
   const filtered = suggestions.filter(
     (s) => !value || s.toLowerCase().includes(value.toLowerCase()),
   );
-
   const isCustom =
     value && suggestions.length > 0 && !suggestions.includes(value);
 
@@ -101,25 +98,15 @@ function FreeTypeSelect({
         <input
           className="form-input"
           value={value}
-          disabled={disabled}
           onChange={(e) => {
             onChange(e.target.value);
             setShow(true);
           }}
           onFocus={() => setShow(true)}
-          placeholder={disabled ? "—" : placeholder}
+          placeholder={placeholder}
           autoComplete="off"
-          style={
-            disabled
-              ? {
-                  background: "var(--gray-50)",
-                  color: "var(--text-muted)",
-                  cursor: "not-allowed",
-                }
-              : {}
-          }
         />
-        {value && !disabled && (
+        {value && (
           <button
             type="button"
             onClick={() => {
@@ -143,7 +130,7 @@ function FreeTypeSelect({
           </button>
         )}
       </div>
-      {show && !disabled && filtered.length > 0 && (
+      {show && filtered.length > 0 && (
         <div
           style={{
             position: "absolute",
@@ -203,46 +190,81 @@ export default function PatientAddressSelect({ value, onChange }: Props) {
       .then((d) => setLocations(Array.isArray(d) ? d : []));
   }, []);
 
-  const sdSuggestions = locations.map((sd) => sd.name);
-  const matchedSD = locations.find((sd) => sd.name === value.subDivision);
-  const blockSuggestions = matchedSD?.blocks.map((b) => b.name) || [];
-  const matchedBlock = matchedSD?.blocks.find((b) => b.name === value.block);
-  const gpSuggestions = matchedBlock?.gramPanchayats.map((g) => g.name) || [];
-  const munSuggestions = matchedBlock?.municipalities.map((m) => m.name) || [];
-  const matchedGP = matchedBlock?.gramPanchayats.find(
-    (g) => g.name === value.gramPanchayat,
+  // Aggregate all GPs and villages from all blocks/subdivisions
+  const allGPs = locations.flatMap((sd) =>
+    sd.blocks.flatMap((b) => b.gramPanchayats),
   );
+  const allMuns = locations.flatMap((sd) =>
+    sd.blocks.flatMap((b) => b.municipalities),
+  );
+
+  const gpSuggestions = Array.from(new Set(allGPs.map((g) => g.name))).sort();
+  const munSuggestions = Array.from(new Set(allMuns.map((m) => m.name))).sort();
+
+  // Villages for selected GP
+  const matchedGP = allGPs.find((g) => g.name === value.gramPanchayat);
   const villageSuggestions = matchedGP?.villages.map((v) => v.name) || [];
-  const matchedMun = matchedBlock?.municipalities.find(
-    (m) => m.name === value.municipality,
-  );
+
+  // Wards for selected municipality
+  const matchedMun = allMuns.find((m) => m.name === value.municipality);
   const wardSuggestions = matchedMun?.wards.map((w) => w.name) || [];
 
-  function handleSD(sd: string) {
-    const matched = locations.find((s) => s.name === sd);
+  // When GP selected, auto-fill subDivision and block from location data
+  function handleGP(gp: string) {
+    // Try to find block/subdiv info for this GP
+    let foundSD = "";
+    let foundSDId = "";
+    let foundBlock = "";
+    let foundBlockId = "";
+    for (const sd of locations) {
+      for (const b of sd.blocks) {
+        if (b.gramPanchayats.some((g) => g.name === gp)) {
+          foundSD = sd.name;
+          foundSDId = sd._id;
+          foundBlock = b.name;
+          foundBlockId = b._id;
+          break;
+        }
+      }
+      if (foundSD) break;
+    }
     onChange({
       ...value,
-      subDivision: sd,
-      subDivisionId: matched?._id || "",
-      block: "",
-      blockId: "",
-      gramPanchayat: "",
+      gramPanchayat: gp,
       village: "",
-      municipality: "",
-      ward: "",
+      subDivision: foundSD,
+      subDivisionId: foundSDId,
+      block: foundBlock,
+      blockId: foundBlockId,
     });
   }
 
-  function handleBlock(block: string) {
-    const matched = matchedSD?.blocks.find((b) => b.name === block);
+  // When Municipality selected, auto-fill subDivision and block
+  function handleMun(mun: string) {
+    let foundSD = "";
+    let foundSDId = "";
+    let foundBlock = "";
+    let foundBlockId = "";
+    for (const sd of locations) {
+      for (const b of sd.blocks) {
+        if (b.municipalities.some((m) => m.name === mun)) {
+          foundSD = sd.name;
+          foundSDId = sd._id;
+          foundBlock = b.name;
+          foundBlockId = b._id;
+          break;
+        }
+      }
+      if (foundSD) break;
+    }
     onChange({
       ...value,
-      block,
-      blockId: matched?._id || "",
-      gramPanchayat: "",
-      village: "",
-      municipality: "",
+      municipality: mun,
       ward: "",
+      subDivision: foundSD,
+      subDivisionId: foundSDId,
+      block: foundBlock,
+      blockId: foundBlockId,
     });
   }
 
@@ -283,6 +305,7 @@ export default function PatientAddressSelect({ value, onChange }: Props) {
         Patient Address
       </div>
 
+      {/* Address Type */}
       <div className="form-group">
         <label className="form-label">Address Type</label>
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
@@ -327,7 +350,8 @@ export default function PatientAddressSelect({ value, onChange }: Props) {
         </div>
       </div>
 
-      {value.type && (
+      {/* GP path — only GP + Village */}
+      {value.type === "gp" && (
         <div
           style={{
             display: "flex",
@@ -337,67 +361,49 @@ export default function PatientAddressSelect({ value, onChange }: Props) {
           }}
         >
           <FreeTypeSelect
-            label="Sub Division"
-            value={value.subDivision}
-            onChange={handleSD}
-            suggestions={sdSuggestions}
-            placeholder="Type or select Sub Division..."
+            label="Gram Panchayat"
+            value={value.gramPanchayat}
+            onChange={handleGP}
+            suggestions={gpSuggestions}
+            placeholder="Type or select Gram Panchayat..."
           />
-
-          {value.subDivision && (
+          {value.gramPanchayat && (
             <FreeTypeSelect
-              label="Block"
-              value={value.block}
-              onChange={handleBlock}
-              suggestions={blockSuggestions}
-              placeholder="Type or select Block..."
+              label="Village"
+              value={value.village}
+              onChange={(village) => onChange({ ...value, village })}
+              suggestions={villageSuggestions}
+              placeholder="Type or select Village..."
             />
           )}
+        </div>
+      )}
 
-          {value.type === "gp" && value.block && (
-            <>
-              <FreeTypeSelect
-                label="Gram Panchayat"
-                value={value.gramPanchayat}
-                onChange={(gp) =>
-                  onChange({ ...value, gramPanchayat: gp, village: "" })
-                }
-                suggestions={gpSuggestions}
-                placeholder="Type or select Gram Panchayat..."
-              />
-              {value.gramPanchayat && (
-                <FreeTypeSelect
-                  label="Village"
-                  value={value.village}
-                  onChange={(village) => onChange({ ...value, village })}
-                  suggestions={villageSuggestions}
-                  placeholder="Type or select Village..."
-                />
-              )}
-            </>
-          )}
-
-          {value.type === "municipality" && value.block && (
-            <>
-              <FreeTypeSelect
-                label="Municipality"
-                value={value.municipality}
-                onChange={(mun) =>
-                  onChange({ ...value, municipality: mun, ward: "" })
-                }
-                suggestions={munSuggestions}
-                placeholder="Type or select Municipality..."
-              />
-              {value.municipality && (
-                <FreeTypeSelect
-                  label="Ward"
-                  value={value.ward}
-                  onChange={(ward) => onChange({ ...value, ward })}
-                  suggestions={wardSuggestions}
-                  placeholder="Type or select Ward..."
-                />
-              )}
-            </>
+      {/* Municipality path — only Municipality + Ward */}
+      {value.type === "municipality" && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            marginTop: 12,
+          }}
+        >
+          <FreeTypeSelect
+            label="Municipality"
+            value={value.municipality}
+            onChange={handleMun}
+            suggestions={munSuggestions}
+            placeholder="Type or select Municipality..."
+          />
+          {value.municipality && (
+            <FreeTypeSelect
+              label="Ward"
+              value={value.ward}
+              onChange={(ward) => onChange({ ...value, ward })}
+              suggestions={wardSuggestions}
+              placeholder="Type or select Ward..."
+            />
           )}
         </div>
       )}
