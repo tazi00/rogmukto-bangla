@@ -408,9 +408,7 @@ export default function AddHelperModal({
                       color: "var(--text-muted)",
                       fontWeight: 400,
                     }}
-                  >
-                    (Admin द्वारा assign किया जाएगा)
-                  </span>
+                  ></span>
                 )}
               </label>
               <input
