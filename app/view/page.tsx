@@ -749,8 +749,8 @@ function ViewPageInner() {
             marginBottom: 20,
           }}
         >
-          <h3 className="text-xl">
-            {role?.[0]?.toUpperCase() + role?.slice(1)} Reports 
+          <h3 className="text-xl capitalize">
+            {role} Reports 
           </h3>
 
           <button
