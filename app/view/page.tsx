@@ -288,8 +288,8 @@ function ViewPageInner() {
 
   // BC date filter (createdAt based) — default: today
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const [bcDateFrom, setBcDateFrom] = useState(today);
-  const [bcDateTo, setBcDateTo] = useState(today);
+  const [bcDateFrom, setBcDateFrom] = useState("");
+  const [bcDateTo, setBcDateTo] = useState("");
   const [dateKey, setDateKey] = useState(0);
 
   // Locations from DB (for SubDiv/Block dropdowns)
@@ -333,8 +333,8 @@ function ViewPageInner() {
   const [sbSortKey, setSbSortKey] = useState("name");
   const [sbSortDir, setSbSortDir] = useState<SortDir>("asc");
   // SB date filter (createdAt based) — default: today
-  const [sbDateFrom, setSbDateFrom] = useState(today);
-  const [sbDateTo, setSbDateTo] = useState(today);
+  const [sbDateFrom, setSbDateFrom] = useState("");
+  const [sbDateTo, setSbDateTo] = useState("");
   const [sbDateKey, setSbDateKey] = useState(0);
 
   // Patient data + filters
@@ -1356,7 +1356,7 @@ function ViewPageInner() {
                 </div>
               )}
               {/* Block Coordinator */}
-              {isAdmin && (
+              {(isAdmin || role === "receptionist") && (
                 <div>
                   <div style={labelStyle}>Block Coordinator</div>
                   <SearchableSelect
@@ -1491,7 +1491,9 @@ function ViewPageInner() {
                       onSort={toggleSBSort}
                     />
                     <th>GP</th>
-                    {isAdmin && <th>Block Coordinator</th>}
+                    {(isAdmin || role === "receptionist") && (
+                      <th>Block Coordinator</th>
+                    )}
                     <SortTh
                       label="Patients"
                       k="totalPatients"
@@ -1506,7 +1508,7 @@ function ViewPageInner() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={isAdmin ? 8 : 7}>
+                      <td colSpan={isAdmin || role === "receptionist" ? 8 : 7}>
                         <div
                           style={{
                             textAlign: "center",
@@ -1520,7 +1522,7 @@ function ViewPageInner() {
                     </tr>
                   ) : displaySBs.length === 0 ? (
                     <tr>
-                      <td colSpan={isAdmin ? 8 : 7}>
+                      <td colSpan={isAdmin || role === "receptionist" ? 8 : 7}>
                         <div className="empty-state">
                           <p>
                             {sbIdFilter === "without"
@@ -1593,7 +1595,7 @@ function ViewPageInner() {
                         <td style={{ fontSize: 12 }}>
                           {row.helper.gramPanchayat}
                         </td>
-                        {isAdmin && (
+                        {(isAdmin || role === "receptionist") && (
                           <td>
                             {row.helper.blockCoordinatorId ? (
                               <span

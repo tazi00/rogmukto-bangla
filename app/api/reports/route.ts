@@ -35,7 +35,10 @@ export async function GET(req: NextRequest) {
     helperFilter.blockCoordinatorId = auth.id;
   }
 
-  const helpers = await Helper.find(helperFilter);
+  const helpers = await Helper.find(helperFilter).populate(
+    "blockCoordinatorId",
+    "name coordinatorId",
+  );
   const helperIds = helpers.map((h) => h._id);
 
   // Patients — only within selected month (DOA)
@@ -67,6 +70,7 @@ export async function GET(req: NextRequest) {
           "—",
         tag: helper.tag,
         createdAt: helper.createdAt,
+        blockCoordinatorId: helper.blockCoordinatorId,
       },
       patients: [],
       totalPatients: 0,

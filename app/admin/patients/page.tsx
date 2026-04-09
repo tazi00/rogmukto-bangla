@@ -369,10 +369,10 @@ export default function AdminPatientsPage() {
               <label className="form-label">Search</label>
               <input
                 className="form-input"
-                placeholder="IPD No. or Name or mobile or GP"
+                placeholder="Search by IPD No. or Name or mobile or GP"
                 value={patientSearch}
                 onChange={(e) => setPatientSearch(e.target.value)}
-                style={{ width: 220, fontSize: 13 }}
+                style={{ width: 300, fontSize: 13 }}
               />
             </div>
           </div>
