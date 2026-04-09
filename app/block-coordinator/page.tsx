@@ -619,7 +619,7 @@ export default function BCPanel() {
                 <label className="form-label">Search</label>
                 <input
                   className="form-input"
-                  placeholder="Name, mobile, IPD..."
+                  placeholder="Search by Name or mobile or IPD..."
                   value={patientSearch}
                   onChange={(e) => setPatientSearch(e.target.value)}
                   style={{ width: 190, fontSize: 13 }}

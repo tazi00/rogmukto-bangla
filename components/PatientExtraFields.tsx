@@ -25,7 +25,7 @@ export default function PatientExtraFields({
           required
           value={swasthaSathNumber}
           onChange={(e) => onChange("swasthaSathNumber", e.target.value)}
-          placeholder="Swastha Sath No."
+          placeholder="123456789012"
         />
       </div>
 
@@ -73,30 +73,7 @@ export default function PatientExtraFields({
         )}
       </div>
 
-      {/* Aadhar — required, full width */}
-      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-        <label className="form-label">
-          Pincode{" "}
-          <span
-            style={{
-              fontWeight: 400,
-              fontSize: 11,
-              color: "var(--text-muted)",
-            }}
-          >
-            (optional)
-          </span>
-        </label>
-        <input
-          className="form-input"
-          value={pincode}
-          onChange={(e) =>
-            onChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          placeholder="6-digit pincode"
-          maxLength={6}
-        />
-      </div>
+
     </div>
   );
 }

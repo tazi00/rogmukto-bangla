@@ -580,7 +580,7 @@ function SBDetailInner() {
           <div style={{ marginBottom: 14 }}>
             <input
               className="form-input"
-              placeholder="🔍 Search by name, mobile, IPD..."
+              placeholder="🔍 Search by name or mobile or IPD..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ maxWidth: 320, fontSize: 13 }}

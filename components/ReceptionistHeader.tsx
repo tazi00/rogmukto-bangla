@@ -103,7 +103,7 @@ const ReceptionHeader: React.FC = () => {
       </div>
       <div style={buttonGroupStyle}>
         <a href="/view" target="_blank" style={buttonStyle}>
-          ↗ View Panel
+          ↗ Report
         </a>
         <button style={buttonStyle} onClick={handleLogout}>
           Logout

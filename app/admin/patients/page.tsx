@@ -704,6 +704,33 @@ export default function AdminPatientsPage() {
                   />
 
                   <PatientAddressSelect value={address} onChange={setAddress} />
+                  {/* Aadhar — required, full width */}
+                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                    <label className="form-label">
+                      Pincode{" "}
+                      <span
+                        style={{
+                          fontWeight: 400,
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      className="form-input"
+                      value={form.pincode}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                        })
+                      }
+                      placeholder="6-digit pincode"
+                      maxLength={6}
+                    />
+                  </div>
                 </div>
                 <div className="modal-footer">
                   <button

@@ -745,9 +745,14 @@ function ViewPageInner() {
             display: "flex",
             gap: 10,
             alignItems: "center",
+            justifyContent: "space-between",
             marginBottom: 20,
           }}
         >
+          <h3 className="text-xl">
+            {role?.[0]?.toUpperCase() + role?.slice(1)} Reports 
+          </h3>
+
           <button
             className="btn btn-secondary"
             onClick={handleExport}
@@ -952,10 +957,10 @@ function ViewPageInner() {
                 <div style={labelStyle}>Search</div>
                 <input
                   className="form-input"
-                  placeholder="ID, name, phone..."
+                  placeholder="Search by ID or name or phone..."
                   value={bcSearch}
                   onChange={(e) => setBcSearch(e.target.value)}
-                  style={{ width: 200, fontSize: 13 }}
+                  style={{ width: 250, fontSize: 13 }}
                 />
               </div>
               {/* Sub Division */}
@@ -1193,7 +1198,7 @@ function ViewPageInner() {
                 <div style={labelStyle}>Search</div>
                 <input
                   className="form-input"
-                  placeholder="ID, name, phone, block, GP..."
+                  placeholder="Search by ID or name or phone or block..."
                   value={sbSearch}
                   onChange={(e) => setSbSearch(e.target.value)}
                   style={{ width: 230, fontSize: 13 }}
@@ -1890,7 +1895,7 @@ function ViewPageInner() {
                     <div style={labelStyle}>Search</div>
                     <input
                       className="form-input"
-                      placeholder="Name, mobile, IPD, SB..."
+                      placeholder="Search by Name or mobile or IPD or SB..."
                       value={patSearch}
                       onChange={(e) => setPatSearch(e.target.value)}
                       style={{ width: 230, fontSize: 13 }}

@@ -962,7 +962,7 @@ function PatientsViewInner() {
             <div style={labelStyle}>Search</div>
             <input
               className="form-input"
-              placeholder="Name, mobile, IPD, SB..."
+              placeholder="Search by Name or mobile or IPD or SB..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 230, fontSize: 13 }}

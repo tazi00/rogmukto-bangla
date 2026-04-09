@@ -404,7 +404,6 @@ export default function ReceptionPage() {
                   <th>DOA</th>
                   <th>Swasthya Bondhu</th>
                   <th>Address</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -446,7 +445,7 @@ export default function ReceptionPage() {
                             : "—"}
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 5 }}>
+                        {/* <div style={{ display: "flex", gap: 5 }}>
                           <button
                             className="btn btn-secondary btn-sm"
                             onClick={() => openEdit(p)}
@@ -459,7 +458,7 @@ export default function ReceptionPage() {
                           >
                             Del
                           </button>
-                        </div>
+                        </div> */}
                       </td>
                     </tr>
                   ))
