@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
           helper.municipalities?.[0]?.municipalityName ||
           "—",
         tag: helper.tag,
+        createdAt: helper.createdAt,
       },
       patients: [],
       totalPatients: 0,

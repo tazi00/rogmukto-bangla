@@ -286,27 +286,79 @@ function ViewPageInner() {
   const [bcSortKey, setBcSortKey] = useState("name");
   const [bcSortDir, setBcSortDir] = useState<SortDir>("asc");
 
-  // BC date filter (createdAt based)
-  const [bcDateFrom, setBcDateFrom] = useState("");
-  const [bcDateTo, setBcDateTo] = useState("");
+  // BC date filter (createdAt based) — default: today
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const [bcDateFrom, setBcDateFrom] = useState(today);
+  const [bcDateTo, setBcDateTo] = useState(today);
   const [dateKey, setDateKey] = useState(0);
 
   // Locations from DB (for SubDiv/Block dropdowns)
   const [locations, setLocations] = useState<
-    { _id: string; name: string; blocks: { _id: string; name: string }[] }[]
+    {
+      _id: string;
+      name: string;
+      blocks: {
+        _id: string;
+        name: string;
+        gramPanchayats: {
+          _id: string;
+          name: string;
+          villages: { _id: string; name: string }[];
+        }[];
+        municipalities: {
+          _id: string;
+          name: string;
+          wards: { _id: string; name: string }[];
+        }[];
+      }[];
+    }[]
   >([]);
 
   // SB data + filters
   const [sbPerf, setSbPerf] = useState<SBPerf[]>([]);
   const [sbSearch, setSbSearch] = useState("");
   const [sbBCFilter, setSbBCFilter] = useState("");
+  // Cascading location filters
   const [sbSDFilter, setSbSDFilter] = useState("");
-  const [sbNoId, setSbNoId] = useState(false);
+  const [sbBlockFilter, setSbBlockFilter] = useState("");
+  const [sbGPFilter, setSbGPFilter] = useState("");
+  const [sbMunFilter, setSbMunFilter] = useState("");
+  const [sbVillageFilter, setSbVillageFilter] = useState("");
+  const [sbWardFilter, setSbWardFilter] = useState("");
+  const [sbAddressType, setSbAddressType] = useState<
+    "" | "gp" | "municipality"
+  >("");
+  // ID filter: "" = all, "with" = with ID, "without" = without ID
+  const [sbIdFilter, setSbIdFilter] = useState<"" | "with" | "without">("");
   const [sbSortKey, setSbSortKey] = useState("name");
   const [sbSortDir, setSbSortDir] = useState<SortDir>("asc");
+  // SB date filter (createdAt based) — default: today
+  const [sbDateFrom, setSbDateFrom] = useState(today);
+  const [sbDateTo, setSbDateTo] = useState(today);
+  const [sbDateKey, setSbDateKey] = useState(0);
 
-  // Patient stats for cards only
+  // Patient data + filters
   const [patientStats, setPatientStats] = useState({ total: 0 });
+  const [allPatients, setAllPatients] = useState<any[]>([]);
+  const [patSearch, setPatSearch] = useState("");
+  const [patSortKey, setPatSortKey] = useState("doa");
+  const [patSortDir, setPatSortDir] = useState<SortDir>("desc");
+  const [patDischargeFilter, setPatDischargeFilter] = useState("");
+  const [patStatusFilter, setPatStatusFilter] = useState("");
+  const [patSbFilter, setPatSbFilter] = useState("");
+  const [patDoaFrom, setPatDoaFrom] = useState("");
+  const [patDoaTo, setPatDoaTo] = useState("");
+  const [patDateKey, setPatDateKey] = useState(0);
+  const [patAddrSD, setPatAddrSD] = useState("");
+  const [patAddrBlock, setPatAddrBlock] = useState("");
+  const [patAddrType, setPatAddrType] = useState<"" | "gp" | "municipality">(
+    "",
+  );
+  const [patAddrGP, setPatAddrGP] = useState("");
+  const [patAddrMun, setPatAddrMun] = useState("");
+  const [patAddrVillage, setPatAddrVillage] = useState("");
+  const [patAddrWard, setPatAddrWard] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -366,7 +418,8 @@ function ViewPageInner() {
       if (patRes.ok) {
         const pats = await patRes
           .json()
-          .then((d) => (Array.isArray(d) ? d : []));
+          .then((d: any) => (Array.isArray(d) ? d : []));
+        setAllPatients(pats);
         setPatientStats({ total: pats.length });
       }
     } catch {
@@ -433,10 +486,38 @@ function ViewPageInner() {
       return bcSortDir === "asc" ? r : -r;
     });
 
-  // ── SB computed ──────────────────────────────────────────────────────────
-  const uniqueSBSubDivs = Array.from(
-    new Set(sbPerf.map((r) => r.helper.subDivision)),
-  ).sort();
+  // ── SB computed — full cascade from locations DB ────────────────────────
+  const sbAllSubDivs = locations.map((sd) => sd.name).sort();
+  const sbMatchedSD = locations.find((sd) => sd.name === sbSDFilter);
+  const sbBlockOptions =
+    sbSDFilter && sbMatchedSD
+      ? sbMatchedSD.blocks.map((b) => b.name).sort()
+      : [];
+  const sbMatchedBlock = sbMatchedSD?.blocks.find(
+    (b) => b.name === sbBlockFilter,
+  );
+  const sbGPOptions =
+    sbBlockFilter && sbMatchedBlock
+      ? sbMatchedBlock.gramPanchayats.map((g) => g.name).sort()
+      : [];
+  const sbMunOptions =
+    sbBlockFilter && sbMatchedBlock
+      ? sbMatchedBlock.municipalities.map((m) => m.name).sort()
+      : [];
+  const sbMatchedGP = sbMatchedBlock?.gramPanchayats.find(
+    (g) => g.name === sbGPFilter,
+  );
+  const sbVillageOptions =
+    sbGPFilter && sbMatchedGP
+      ? sbMatchedGP.villages.map((v) => v.name).sort()
+      : [];
+  const sbMatchedMun = sbMatchedBlock?.municipalities.find(
+    (m) => m.name === sbMunFilter,
+  );
+  const sbWardOptions =
+    sbMunFilter && sbMatchedMun
+      ? sbMatchedMun.wards.map((w) => w.name).sort()
+      : [];
 
   function toggleSBSort(k: string) {
     if (sbSortKey === k) setSbSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -448,8 +529,27 @@ function ViewPageInner() {
 
   const displaySBs = sbPerf
     .filter((row) => {
-      if (sbNoId && row.helper.helperId) return false;
+      if (sbIdFilter === "with" && !row.helper.helperId) return false;
+      if (sbIdFilter === "without" && row.helper.helperId) return false;
       if (sbSDFilter && row.helper.subDivision !== sbSDFilter) return false;
+      if (sbBlockFilter && row.helper.block !== sbBlockFilter) return false;
+      if (sbGPFilter && row.helper.gramPanchayat !== sbGPFilter) return false;
+      // Date filter — createdAt based
+      if (sbDateFrom || sbDateTo) {
+        const raw = (row.helper as any).createdAt;
+        if (!raw) return false;
+        const created = new Date(raw);
+        if (sbDateFrom) {
+          const from = new Date(sbDateFrom);
+          from.setHours(0, 0, 0, 0);
+          if (created < from) return false;
+        }
+        if (sbDateTo) {
+          const to = new Date(sbDateTo);
+          to.setHours(23, 59, 59, 999);
+          if (created > to) return false;
+        }
+      }
       if (sbBCFilter) {
         const bcId =
           typeof row.helper.blockCoordinatorId === "object"
@@ -514,9 +614,10 @@ function ViewPageInner() {
         `BlockCoordinators_${mon}_${selYear}`,
       );
     } else if (activeSection === "sb") {
-      const name = sbNoId
-        ? `SB_Without_ID_${mon}_${selYear}`
-        : `SwasthyaBondhu_${mon}_${selYear}`;
+      const name =
+        sbIdFilter === "without"
+          ? `SB_Without_ID_${mon}_${selYear}`
+          : `SwasthyaBondhu_${mon}_${selYear}`;
       writeXlsx(
         displaySBs.map((row) => ({
           "SB ID": row.helper.helperId || "—",
@@ -547,9 +648,6 @@ function ViewPageInner() {
     : isBC
       ? "Block Coordinator"
       : "Receptionist";
-
-  if (!mounted) return null;
-  const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
   const labelStyle: React.CSSProperties = {
     fontSize: 11,
     fontWeight: 600,
@@ -558,6 +656,9 @@ function ViewPageInner() {
     letterSpacing: "0.04em",
     marginBottom: 4,
   };
+
+  if (!mounted) return null;
+  const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -768,13 +869,14 @@ function ViewPageInner() {
             </div>
           </div>
           <div
-            onClick={() =>
-              router.push(`/view/patients?month=${selYear}-${selMonth}`)
-            }
+            onClick={() => setActiveSection("patient")}
             style={{
               padding: "16px 20px",
-              background: "var(--surface)",
-              border: "2px solid var(--border)",
+              background:
+                activeSection === "patient"
+                  ? "var(--green-dark)"
+                  : "var(--surface)",
+              border: `2px solid ${activeSection === "patient" ? "var(--green-dark)" : "var(--border)"}`,
               borderRadius: "var(--radius-sm)",
               cursor: "pointer",
               transition: "all 0.15s",
@@ -784,7 +886,10 @@ function ViewPageInner() {
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                color: "var(--text-muted)",
+                color:
+                  activeSection === "patient"
+                    ? "rgba(255,255,255,0.7)"
+                    : "var(--text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
               }}
@@ -795,16 +900,23 @@ function ViewPageInner() {
               style={{
                 fontSize: 32,
                 fontWeight: 700,
-                color: "var(--text)",
+                color: activeSection === "patient" ? "#fff" : "var(--text)",
                 marginTop: 4,
               }}
             >
               {patientStats.total}
             </div>
             <div
-              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+              style={{
+                fontSize: 11,
+                color:
+                  activeSection === "patient"
+                    ? "rgba(255,255,255,0.6)"
+                    : "var(--text-muted)",
+                marginTop: 2,
+              }}
             >
-              View more →
+              Click to view list
             </div>
           </div>
         </div>
@@ -1076,6 +1188,7 @@ function ViewPageInner() {
                 alignItems: "flex-end",
               }}
             >
+              {/* Search */}
               <div>
                 <div style={labelStyle}>Search</div>
                 <input
@@ -1083,18 +1196,166 @@ function ViewPageInner() {
                   placeholder="ID, name, phone, block, GP..."
                   value={sbSearch}
                   onChange={(e) => setSbSearch(e.target.value)}
-                  style={{ width: 250, fontSize: 13 }}
+                  style={{ width: 230, fontSize: 13 }}
                 />
               </div>
+              {/* Sub Division — from DB */}
               <div>
                 <div style={labelStyle}>Sub Division</div>
                 <SearchableSelect
-                  options={uniqueSBSubDivs.map((s) => ({ label: s, value: s }))}
+                  options={sbAllSubDivs.map((s) => ({ label: s, value: s }))}
                   value={sbSDFilter}
-                  onChange={setSbSDFilter}
+                  onChange={(v) => {
+                    setSbSDFilter(v);
+                    setSbBlockFilter("");
+                    setSbGPFilter("");
+                    setSbMunFilter("");
+                    setSbVillageFilter("");
+                    setSbWardFilter("");
+                    setSbAddressType("");
+                  }}
                   placeholder="All Sub Divisions"
                 />
               </div>
+              {/* Block — shows when SD selected */}
+              {sbSDFilter && (
+                <div>
+                  <div style={labelStyle}>Block</div>
+                  <SearchableSelect
+                    options={sbBlockOptions.map((s) => ({
+                      label: s,
+                      value: s,
+                    }))}
+                    value={sbBlockFilter}
+                    onChange={(v) => {
+                      setSbBlockFilter(v);
+                      setSbGPFilter("");
+                      setSbMunFilter("");
+                      setSbVillageFilter("");
+                      setSbWardFilter("");
+                      setSbAddressType("");
+                    }}
+                    placeholder="All Blocks"
+                  />
+                </div>
+              )}
+              {/* Type — GP or Municipality */}
+              {sbBlockFilter &&
+                (sbGPOptions.length > 0 || sbMunOptions.length > 0) && (
+                  <div>
+                    <div style={labelStyle}>Type</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {(["", "gp", "municipality"] as const).map((opt, i) => (
+                        <button
+                          key={opt}
+                          onClick={() => {
+                            setSbAddressType(opt);
+                            setSbGPFilter("");
+                            setSbMunFilter("");
+                            setSbVillageFilter("");
+                            setSbWardFilter("");
+                          }}
+                          style={{
+                            padding: "7px 10px",
+                            fontSize: 12,
+                            fontWeight: sbAddressType === opt ? 600 : 400,
+                            background:
+                              sbAddressType === opt
+                                ? "var(--green-dark)"
+                                : "var(--surface)",
+                            color:
+                              sbAddressType === opt
+                                ? "#fff"
+                                : "var(--text-muted)",
+                            border: "none",
+                            borderLeft:
+                              i > 0 ? "1px solid var(--border)" : "none",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {opt === ""
+                            ? "All"
+                            : opt === "gp"
+                              ? "🌿 GP"
+                              : "🏙 Mun"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              {/* GP */}
+              {sbBlockFilter &&
+                sbAddressType === "gp" &&
+                sbGPOptions.length > 0 && (
+                  <div>
+                    <div style={labelStyle}>Gram Panchayat</div>
+                    <SearchableSelect
+                      options={sbGPOptions.map((s) => ({ label: s, value: s }))}
+                      value={sbGPFilter}
+                      onChange={(v) => {
+                        setSbGPFilter(v);
+                        setSbVillageFilter("");
+                      }}
+                      placeholder="All GPs"
+                    />
+                  </div>
+                )}
+              {/* Village */}
+              {sbGPFilter && sbVillageOptions.length > 0 && (
+                <div>
+                  <div style={labelStyle}>Village</div>
+                  <SearchableSelect
+                    options={sbVillageOptions.map((s) => ({
+                      label: s,
+                      value: s,
+                    }))}
+                    value={sbVillageFilter}
+                    onChange={setSbVillageFilter}
+                    placeholder="All Villages"
+                  />
+                </div>
+              )}
+              {/* Municipality */}
+              {sbBlockFilter &&
+                sbAddressType === "municipality" &&
+                sbMunOptions.length > 0 && (
+                  <div>
+                    <div style={labelStyle}>Municipality</div>
+                    <SearchableSelect
+                      options={sbMunOptions.map((s) => ({
+                        label: s,
+                        value: s,
+                      }))}
+                      value={sbMunFilter}
+                      onChange={(v) => {
+                        setSbMunFilter(v);
+                        setSbWardFilter("");
+                      }}
+                      placeholder="All Municipalities"
+                    />
+                  </div>
+                )}
+              {/* Ward */}
+              {sbMunFilter && sbWardOptions.length > 0 && (
+                <div>
+                  <div style={labelStyle}>Ward</div>
+                  <SearchableSelect
+                    options={sbWardOptions.map((s) => ({ label: s, value: s }))}
+                    value={sbWardFilter}
+                    onChange={setSbWardFilter}
+                    placeholder="All Wards"
+                  />
+                </div>
+              )}
+              {/* Block Coordinator */}
               {isAdmin && (
                 <div>
                   <div style={labelStyle}>Block Coordinator</div>
@@ -1109,33 +1370,93 @@ function ViewPageInner() {
                   />
                 </div>
               )}
+              {/* Date filter */}
+              <div>
+                <div style={labelStyle}>Date From</div>
+                <input
+                  type="date"
+                  className="form-input"
+                  key={`sb-from-${sbDateKey}`}
+                  value={sbDateFrom}
+                  onChange={(e) => setSbDateFrom(e.target.value)}
+                  style={{ fontSize: 13, colorScheme: "light" }}
+                />
+              </div>
+              <div>
+                <div style={labelStyle}>Date To</div>
+                <input
+                  type="date"
+                  className="form-input"
+                  key={`sb-to-${sbDateKey}`}
+                  value={sbDateTo}
+                  onChange={(e) => setSbDateTo(e.target.value)}
+                  style={{ fontSize: 13, colorScheme: "light" }}
+                />
+              </div>
+              {/* ID filter */}
               <div style={{ alignSelf: "flex-end" }}>
-                <button
-                  onClick={() => setSbNoId((v) => !v)}
+                <div
                   style={{
-                    padding: "7px 14px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    border: `2px solid ${sbNoId ? "var(--accent)" : "var(--border)"}`,
+                    display: "flex",
+                    border: "1px solid var(--border)",
                     borderRadius: "var(--radius-sm)",
-                    background: sbNoId ? "#fff3e0" : "var(--surface)",
-                    color: sbNoId ? "var(--accent)" : "var(--text-muted)",
-                    cursor: "pointer",
+                    overflow: "hidden",
                   }}
                 >
-                  🪪{" "}
-                  {sbNoId ? `Without ID (${displaySBs.length})` : "Without ID"}
-                </button>
+                  {(["", "with", "without"] as const).map((opt, i) => (
+                    <button
+                      key={opt}
+                      onClick={() => setSbIdFilter(opt)}
+                      style={{
+                        padding: "7px 11px",
+                        fontSize: 12,
+                        fontWeight: sbIdFilter === opt ? 600 : 400,
+                        background:
+                          sbIdFilter === opt
+                            ? "var(--green-dark)"
+                            : "var(--surface)",
+                        color:
+                          sbIdFilter === opt ? "#fff" : "var(--text-muted)",
+                        border: "none",
+                        borderLeft: i > 0 ? "1px solid var(--border)" : "none",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {opt === "" ? "All" : opt === "with" ? "✓ ID" : "⚠ No ID"}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {(sbSearch || sbSDFilter || sbBCFilter || sbNoId) && (
+              {/* Reset */}
+              {(sbSearch ||
+                sbSDFilter ||
+                sbBlockFilter ||
+                sbGPFilter ||
+                sbMunFilter ||
+                sbVillageFilter ||
+                sbWardFilter ||
+                sbBCFilter ||
+                sbIdFilter ||
+                sbDateFrom ||
+                sbDateTo) && (
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ alignSelf: "flex-end" }}
                   onClick={() => {
                     setSbSearch("");
                     setSbSDFilter("");
+                    setSbBlockFilter("");
+                    setSbGPFilter("");
+                    setSbMunFilter("");
+                    setSbVillageFilter("");
+                    setSbWardFilter("");
+                    setSbAddressType("");
                     setSbBCFilter("");
-                    setSbNoId(false);
+                    setSbIdFilter("");
+                    setSbDateFrom("");
+                    setSbDateTo("");
+                    setSbDateKey((k) => k + 1);
                   }}
                 >
                   ✕ Reset
@@ -1202,7 +1523,11 @@ function ViewPageInner() {
                       <td colSpan={isAdmin ? 8 : 7}>
                         <div className="empty-state">
                           <p>
-                            {sbNoId ? "All SBs have IDs." : "No data found."}
+                            {sbIdFilter === "without"
+                              ? "All SBs have IDs."
+                              : sbIdFilter === "with"
+                                ? "No SBs with ID found."
+                                : "No data found."}
                           </p>
                         </div>
                       </td>
@@ -1312,7 +1637,864 @@ function ViewPageInner() {
             </div>
           </div>
         )}
+
+        {/* ── PATIENT TABLE ── */}
+        {activeSection === "patient" &&
+          (() => {
+            // Patient address cascade
+            const patMatchedSD = locations.find((sd) => sd.name === patAddrSD);
+            const patBlockOptions =
+              patAddrSD && patMatchedSD
+                ? patMatchedSD.blocks.map((b) => b.name).sort()
+                : [];
+            const patMatchedBlock = patMatchedSD?.blocks.find(
+              (b) => b.name === patAddrBlock,
+            );
+            const patGPOptions =
+              patAddrBlock && patMatchedBlock
+                ? patMatchedBlock.gramPanchayats.map((g) => g.name).sort()
+                : [];
+            const patMunOptions =
+              patAddrBlock && patMatchedBlock
+                ? patMatchedBlock.municipalities.map((m) => m.name).sort()
+                : [];
+            const patMatchedGP = patMatchedBlock?.gramPanchayats.find(
+              (g) => g.name === patAddrGP,
+            );
+            const patVillageOptions =
+              patAddrGP && patMatchedGP
+                ? patMatchedGP.villages.map((v) => v.name).sort()
+                : [];
+            const patMatchedMun = patMatchedBlock?.municipalities.find(
+              (m) => m.name === patAddrMun,
+            );
+            const patWardOptions =
+              patAddrMun && patMatchedMun
+                ? patMatchedMun.wards.map((w) => w.name).sort()
+                : [];
+            const uniqueSBs = Array.from(
+              new Map(
+                allPatients.map((p) => [(p.helperId as any)?._id, p.helperId]),
+              ).entries(),
+            )
+              .map(([id, h]) => ({
+                _id: id,
+                name: (h as any)?.name || "",
+                block: (h as any)?.block || "",
+              }))
+              .filter((h) => h._id);
+            const pq = patSearch.toLowerCase();
+            const displayPats = allPatients
+              .filter((p) => {
+                if (
+                  patDischargeFilter &&
+                  (p.dischargeStatus || "admitted") !== patDischargeFilter
+                )
+                  return false;
+                if (patStatusFilter && p.paymentStatus !== patStatusFilter)
+                  return false;
+                if (patSbFilter && (p.helperId as any)?._id !== patSbFilter)
+                  return false;
+                if (patDoaFrom || patDoaTo) {
+                  const doa = new Date(p.doa);
+                  if (patDoaFrom) {
+                    const from = new Date(patDoaFrom);
+                    from.setHours(0, 0, 0, 0);
+                    if (doa < from) return false;
+                  }
+                  if (patDoaTo) {
+                    const to = new Date(patDoaTo);
+                    to.setHours(23, 59, 59, 999);
+                    if (doa > to) return false;
+                  }
+                }
+                if (patAddrSD && p.address?.subDivision !== patAddrSD)
+                  return false;
+                if (patAddrBlock && p.address?.block !== patAddrBlock)
+                  return false;
+                if (patAddrGP && p.address?.gramPanchayat !== patAddrGP)
+                  return false;
+                if (patAddrMun && p.address?.municipality !== patAddrMun)
+                  return false;
+                if (!pq) return true;
+                return (
+                  p.name.toLowerCase().includes(pq) ||
+                  p.mobile.includes(pq) ||
+                  p.ipdNo.toLowerCase().includes(pq) ||
+                  (p.helperId as any)?.name?.toLowerCase().includes(pq)
+                );
+              })
+              .sort((a: any, b: any) => {
+                let va: any, vb: any;
+                if (patSortKey === "doa") {
+                  va = new Date(a.doa).getTime();
+                  vb = new Date(b.doa).getTime();
+                } else if (patSortKey === "name") {
+                  va = a.name;
+                  vb = b.name;
+                } else {
+                  va = a.ipdNo;
+                  vb = b.ipdNo;
+                }
+                const r =
+                  typeof va === "number"
+                    ? va - vb
+                    : String(va).localeCompare(String(vb));
+                return patSortDir === "asc" ? r : -r;
+              });
+            const admittedCount = allPatients.filter(
+              (p: any) =>
+                !p.dischargeStatus || p.dischargeStatus === "admitted",
+            ).length;
+            const continuedCount = allPatients.filter(
+              (p: any) => p.dischargeStatus === "continued",
+            ).length;
+            const transferredCount = allPatients.filter(
+              (p: any) => p.dischargeStatus === "transferred",
+            ).length;
+            const hasPatFilter =
+              patSearch ||
+              patDischargeFilter ||
+              patStatusFilter ||
+              patSbFilter ||
+              patDoaFrom ||
+              patDoaTo ||
+              patAddrSD;
+            const showPayment = isAdmin || isBC;
+            function togglePatSort(k: string) {
+              if (patSortKey === k)
+                setPatSortDir((d) => (d === "asc" ? "desc" : "asc"));
+              else {
+                setPatSortKey(k);
+                setPatSortDir("asc");
+              }
+            }
+
+            return (
+              <div>
+                <h3
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    margin: "0 0 16px 0",
+                  }}
+                >
+                  Patients{" "}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      fontWeight: 400,
+                    }}
+                  >
+                    ({displayPats.length})
+                  </span>
+                </h3>
+
+                {/* Discharge status mini-cards */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    marginBottom: 16,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {[
+                    {
+                      key: "",
+                      label: "All",
+                      count: allPatients.length,
+                      color: "var(--text-muted)",
+                      bg: "",
+                    },
+                    {
+                      key: "admitted",
+                      label: "Admitted",
+                      count: admittedCount,
+                      color: "var(--green)",
+                      bg: "#dcfce7",
+                    },
+                    {
+                      key: "continued",
+                      label: "Continued",
+                      count: continuedCount,
+                      color: "#2563eb",
+                      bg: "#dbeafe",
+                    },
+                    {
+                      key: "transferred",
+                      label: "Transferred",
+                      count: transferredCount,
+                      color: "var(--red)",
+                      bg: "#fee2e2",
+                    },
+                  ].map((pill) => (
+                    <div
+                      key={pill.key}
+                      onClick={() =>
+                        setPatDischargeFilter(
+                          patDischargeFilter === pill.key ? "" : pill.key,
+                        )
+                      }
+                      style={{
+                        padding: "10px 16px",
+                        background:
+                          patDischargeFilter === pill.key
+                            ? pill.bg || "var(--gray-50)"
+                            : "var(--surface)",
+                        border: `2px solid ${patDischargeFilter === pill.key ? pill.color : "var(--border)"}`,
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        minWidth: 100,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: pill.color,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {pill.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 24,
+                          fontWeight: 700,
+                          color: pill.color,
+                          marginTop: 2,
+                        }}
+                      >
+                        {pill.count}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginBottom: 14,
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <div>
+                    <div style={labelStyle}>Search</div>
+                    <input
+                      className="form-input"
+                      placeholder="Name, mobile, IPD, SB..."
+                      value={patSearch}
+                      onChange={(e) => setPatSearch(e.target.value)}
+                      style={{ width: 230, fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>Swasthya Bondhu</div>
+                    <SearchableSelect
+                      options={uniqueSBs.map((h) => ({
+                        label: `${h.name} — ${h.block}`,
+                        value: h._id,
+                      }))}
+                      value={patSbFilter}
+                      onChange={setPatSbFilter}
+                      placeholder="All SBs"
+                    />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>DOA From</div>
+                    <input
+                      type="date"
+                      className="form-input"
+                      key={`pdoa-from-${patDateKey}`}
+                      value={patDoaFrom}
+                      onChange={(e) => setPatDoaFrom(e.target.value)}
+                      style={{ fontSize: 13, colorScheme: "light" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>DOA To</div>
+                    <input
+                      type="date"
+                      className="form-input"
+                      key={`pdoa-to-${patDateKey}`}
+                      value={patDoaTo}
+                      onChange={(e) => setPatDoaTo(e.target.value)}
+                      style={{ fontSize: 13, colorScheme: "light" }}
+                    />
+                  </div>
+                  {showPayment && (
+                    <div>
+                      <div style={labelStyle}>Payment</div>
+                      <select
+                        style={{
+                          fontSize: 13,
+                          padding: "7px 10px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--border)",
+                          background: "var(--surface)",
+                        }}
+                        value={patStatusFilter}
+                        onChange={(e) => setPatStatusFilter(e.target.value)}
+                      >
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="clearance">Cleared</option>
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <div style={labelStyle}>Sub Division</div>
+                    <SearchableSelect
+                      options={locations.map((sd) => ({
+                        label: sd.name,
+                        value: sd.name,
+                      }))}
+                      value={patAddrSD}
+                      onChange={(v) => {
+                        setPatAddrSD(v);
+                        setPatAddrBlock("");
+                        setPatAddrType("");
+                        setPatAddrGP("");
+                        setPatAddrMun("");
+                        setPatAddrVillage("");
+                        setPatAddrWard("");
+                      }}
+                      placeholder="All Sub Divs"
+                    />
+                  </div>
+                  {patAddrSD && (
+                    <div>
+                      <div style={labelStyle}>Block</div>
+                      <SearchableSelect
+                        options={patBlockOptions.map((s) => ({
+                          label: s,
+                          value: s,
+                        }))}
+                        value={patAddrBlock}
+                        onChange={(v) => {
+                          setPatAddrBlock(v);
+                          setPatAddrType("");
+                          setPatAddrGP("");
+                          setPatAddrMun("");
+                          setPatAddrVillage("");
+                          setPatAddrWard("");
+                        }}
+                        placeholder="All Blocks"
+                      />
+                    </div>
+                  )}
+                  {patAddrBlock &&
+                    (patGPOptions.length > 0 || patMunOptions.length > 0) && (
+                      <div>
+                        <div style={labelStyle}>Type</div>
+                        <div
+                          style={{
+                            display: "flex",
+                            border: "1px solid var(--border)",
+                            borderRadius: "var(--radius-sm)",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {(["", "gp", "municipality"] as const).map(
+                            (opt, i) => (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setPatAddrType(opt);
+                                  setPatAddrGP("");
+                                  setPatAddrMun("");
+                                  setPatAddrVillage("");
+                                  setPatAddrWard("");
+                                }}
+                                style={{
+                                  padding: "7px 10px",
+                                  fontSize: 12,
+                                  fontWeight: patAddrType === opt ? 600 : 400,
+                                  background:
+                                    patAddrType === opt
+                                      ? "var(--green-dark)"
+                                      : "var(--surface)",
+                                  color:
+                                    patAddrType === opt
+                                      ? "#fff"
+                                      : "var(--text-muted)",
+                                  border: "none",
+                                  borderLeft:
+                                    i > 0 ? "1px solid var(--border)" : "none",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {opt === ""
+                                  ? "All"
+                                  : opt === "gp"
+                                    ? "🌿 GP"
+                                    : "🏙 Mun"}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  {patAddrBlock &&
+                    patAddrType === "gp" &&
+                    patGPOptions.length > 0 && (
+                      <div>
+                        <div style={labelStyle}>Gram Panchayat</div>
+                        <SearchableSelect
+                          options={patGPOptions.map((s) => ({
+                            label: s,
+                            value: s,
+                          }))}
+                          value={patAddrGP}
+                          onChange={(v) => {
+                            setPatAddrGP(v);
+                            setPatAddrVillage("");
+                          }}
+                          placeholder="All GPs"
+                        />
+                      </div>
+                    )}
+                  {patAddrGP && patVillageOptions.length > 0 && (
+                    <div>
+                      <div style={labelStyle}>Village</div>
+                      <SearchableSelect
+                        options={patVillageOptions.map((s) => ({
+                          label: s,
+                          value: s,
+                        }))}
+                        value={patAddrVillage}
+                        onChange={setPatAddrVillage}
+                        placeholder="All Villages"
+                      />
+                    </div>
+                  )}
+                  {patAddrBlock &&
+                    patAddrType === "municipality" &&
+                    patMunOptions.length > 0 && (
+                      <div>
+                        <div style={labelStyle}>Municipality</div>
+                        <SearchableSelect
+                          options={patMunOptions.map((s) => ({
+                            label: s,
+                            value: s,
+                          }))}
+                          value={patAddrMun}
+                          onChange={(v) => {
+                            setPatAddrMun(v);
+                            setPatAddrWard("");
+                          }}
+                          placeholder="All Municipalities"
+                        />
+                      </div>
+                    )}
+                  {patAddrMun && patWardOptions.length > 0 && (
+                    <div>
+                      <div style={labelStyle}>Ward</div>
+                      <SearchableSelect
+                        options={patWardOptions.map((s) => ({
+                          label: s,
+                          value: s,
+                        }))}
+                        value={patAddrWard}
+                        onChange={setPatAddrWard}
+                        placeholder="All Wards"
+                      />
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      alignSelf: "flex-end",
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      Showing {displayPats.length}
+                    </span>
+                    {hasPatFilter && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          setPatSearch("");
+                          setPatDischargeFilter("");
+                          setPatStatusFilter("");
+                          setPatSbFilter("");
+                          setPatDoaFrom("");
+                          setPatDoaTo("");
+                          setPatDateKey((k) => k + 1);
+                          setPatAddrSD("");
+                          setPatAddrBlock("");
+                          setPatAddrType("");
+                          setPatAddrGP("");
+                          setPatAddrMun("");
+                          setPatAddrVillage("");
+                          setPatAddrWard("");
+                        }}
+                      >
+                        ✕ Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th
+                          onClick={() => togglePatSort("name")}
+                          style={{
+                            cursor: "pointer",
+                            userSelect: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Patient{" "}
+                          {patSortKey === "name" ? (
+                            patSortDir === "asc" ? (
+                              "↑"
+                            ) : (
+                              "↓"
+                            )
+                          ) : (
+                            <span style={{ opacity: 0.3 }}>↕</span>
+                          )}
+                        </th>
+                        <th>Mobile</th>
+                        <th
+                          onClick={() => togglePatSort("ipdNo")}
+                          style={{
+                            cursor: "pointer",
+                            userSelect: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          IPD{" "}
+                          {patSortKey === "ipdNo" ? (
+                            patSortDir === "asc" ? (
+                              "↑"
+                            ) : (
+                              "↓"
+                            )
+                          ) : (
+                            <span style={{ opacity: 0.3 }}>↕</span>
+                          )}
+                        </th>
+                        <th
+                          onClick={() => togglePatSort("doa")}
+                          style={{
+                            cursor: "pointer",
+                            userSelect: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          DOA{" "}
+                          {patSortKey === "doa" ? (
+                            patSortDir === "asc" ? (
+                              "↑"
+                            ) : (
+                              "↓"
+                            )
+                          ) : (
+                            <span style={{ opacity: 0.3 }}>↕</span>
+                          )}
+                        </th>
+                        <th>Swasthya Bondhu</th>
+                        <th>Address</th>
+                        {showPayment && (
+                          <>
+                            <th>Incentive</th>
+                            <th>Payment</th>
+                          </>
+                        )}
+                        <th>Discharge</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={10}>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                padding: 32,
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              Loading...
+                            </div>
+                          </td>
+                        </tr>
+                      ) : displayPats.length === 0 ? (
+                        <tr>
+                          <td colSpan={10}>
+                            <div className="empty-state">
+                              <p>No patients found.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        displayPats.map((p: any) => (
+                          <tr key={p._id}>
+                            <td>
+                              <div style={{ fontWeight: 500 }}>{p.name}</div>
+                            </td>
+                            <td
+                              style={{ fontFamily: "monospace", fontSize: 12 }}
+                            >
+                              {p.mobile}
+                            </td>
+                            <td
+                              style={{ fontFamily: "monospace", fontSize: 12 }}
+                            >
+                              {p.ipdNo}
+                            </td>
+                            <td style={{ fontSize: 12 }}>
+                              {new Date(p.doa).toLocaleDateString("en-IN")}
+                            </td>
+                            <td>
+                              <div
+                                style={{
+                                  fontWeight: 500,
+                                  fontSize: 13,
+                                  color: "var(--green-dark)",
+                                  textDecoration: "underline",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() =>
+                                  router.push(
+                                    `/view/sb/${(p.helperId as any)?._id}?month=${selYear}-${selMonth}`,
+                                  )
+                                }
+                              >
+                                {(p.helperId as any)?.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                {(p.helperId as any)?.block}
+                              </div>
+                            </td>
+                            <td
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              {p.address?.type === "gp"
+                                ? `🌿 ${p.address.gramPanchayat}${p.address.village ? ` / ${p.address.village}` : ""}`
+                                : p.address?.type === "municipality"
+                                  ? `🏙 ${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ""}`
+                                  : "—"}
+                            </td>
+                            {showPayment && (
+                              <>
+                                <td style={{ fontWeight: 600 }}>
+                                  ₹{p.incentiveAmount}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
+                                  >
+                                    {p.paymentStatus === "clearance"
+                                      ? "✓ Cleared"
+                                      : "⏳ Pending"}
+                                  </span>
+                                </td>
+                              </>
+                            )}
+                            <td>
+                              <span
+                                className={`badge ${p.dischargeStatus === "continued" ? "badge-green" : p.dischargeStatus === "transferred" ? "badge-red" : "badge-gray"}`}
+                              >
+                                {p.dischargeStatus === "continued"
+                                  ? "✓ Continued"
+                                  : p.dischargeStatus === "transferred"
+                                    ? "↗ Transferred"
+                                    : "🏥 Admitted"}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setSelectedPatient(p)}
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
       </div>
     </div>
   );
+
+  {
+    /* Patient Detail Modal */
+  }
+  {
+    selectedPatient && (
+      <div
+        className="modal-overlay"
+        onClick={(e) =>
+          e.target === e.currentTarget && setSelectedPatient(null)
+        }
+      >
+        <div
+          className="modal"
+          style={{ maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}
+        >
+          <div className="modal-header">
+            <h3>{selectedPatient.name}</h3>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setSelectedPatient(null)}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="modal-body">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              {[
+                { label: "Mobile", value: selectedPatient.mobile },
+                { label: "IPD No.", value: selectedPatient.ipdNo },
+                {
+                  label: "DOA",
+                  value: new Date(selectedPatient.doa).toLocaleDateString(
+                    "en-IN",
+                  ),
+                },
+                { label: "Aadhar", value: selectedPatient.aadharNumber || "—" },
+                {
+                  label: "Swastha Sath",
+                  value: selectedPatient.swasthaSathNumber || "—",
+                },
+                { label: "Pincode", value: selectedPatient.pincode || "—" },
+                {
+                  label: "SB Name",
+                  value: (selectedPatient.helperId as any)?.name || "—",
+                },
+                {
+                  label: "Block",
+                  value: (selectedPatient.helperId as any)?.block || "—",
+                },
+                ...(isAdmin || isBC
+                  ? [
+                      {
+                        label: "Incentive",
+                        value: `₹${selectedPatient.incentiveAmount}`,
+                      },
+                      {
+                        label: "Payment",
+                        value:
+                          selectedPatient.paymentStatus === "clearance"
+                            ? "✓ Cleared"
+                            : "⏳ Pending",
+                      },
+                      {
+                        label: "Blocking Amt",
+                        value: selectedPatient.blockingAmount
+                          ? `₹${selectedPatient.blockingAmount}`
+                          : "—",
+                      },
+                      {
+                        label: "Discharge Amt",
+                        value: selectedPatient.dischargeAmount
+                          ? `₹${selectedPatient.dischargeAmount}`
+                          : "—",
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Discharge",
+                  value:
+                    selectedPatient.dischargeStatus === "continued"
+                      ? "Continued"
+                      : selectedPatient.dischargeStatus === "transferred"
+                        ? "Transferred"
+                        : "Admitted",
+                },
+                {
+                  label: "Discharge Date",
+                  value: selectedPatient.dischargeDate
+                    ? new Date(
+                        selectedPatient.dischargeDate,
+                      ).toLocaleDateString("en-IN")
+                    : "—",
+                },
+              ].map((f: any) => (
+                <div key={f.label}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {f.label}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.value}</div>
+                </div>
+              ))}
+            </div>
+            {selectedPatient.address?.type && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: "12px 16px",
+                  background: "var(--gray-50)",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    marginBottom: 6,
+                  }}
+                >
+                  Address
+                </div>
+                <div style={{ fontSize: 13 }}>
+                  {selectedPatient.address.type === "gp"
+                    ? `🌿 ${selectedPatient.address.gramPanchayat}${selectedPatient.address.village ? ` / ${selectedPatient.address.village}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`
+                    : `🏙 ${selectedPatient.address.municipality}${selectedPatient.address.ward ? ` / ${selectedPatient.address.ward}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

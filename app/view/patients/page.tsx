@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 
@@ -44,6 +44,155 @@ interface Patient {
     tag: string;
   };
   address?: any;
+}
+
+function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const filtered = options.filter(
+    (o) => !q || o.label.toLowerCase().includes(q.toLowerCase()),
+  );
+  const selected = options.find((o) => o.value === value);
+  return (
+    <div ref={ref} style={{ position: "relative", minWidth: 160 }}>
+      <div
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "7px 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface)",
+          cursor: "pointer",
+          fontSize: 13,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            color: selected ? "var(--text)" : "var(--text-muted)",
+          }}
+        >
+          {selected ? selected.label : placeholder}
+        </span>
+        {value && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+              setQ("");
+            }}
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </span>
+        )}
+        <span style={{ color: "var(--text-muted)", fontSize: 10 }}>▾</span>
+      </div>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 300,
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--surface)",
+            boxShadow: "var(--shadow-md)",
+            maxHeight: 220,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <input
+            autoFocus
+            className="form-input"
+            placeholder="Search..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            style={{ margin: 6, fontSize: 12, padding: "5px 8px" }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div style={{ overflowY: "auto", maxHeight: 160 }}>
+            <div
+              onMouseDown={() => {
+                onChange("");
+                setQ("");
+                setOpen(false);
+              }}
+              style={{
+                padding: "8px 12px",
+                fontSize: 13,
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                borderBottom: "1px solid var(--gray-100)",
+              }}
+            >
+              All
+            </div>
+            {filtered.map((o) => (
+              <div
+                key={o.value}
+                onMouseDown={() => {
+                  onChange(o.value);
+                  setQ("");
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  borderBottom: "1px solid var(--gray-100)",
+                  background: o.value === value ? "var(--green-light)" : "",
+                  fontWeight: o.value === value ? 500 : 400,
+                }}
+              >
+                {o.label}
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                }}
+              >
+                No results
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SortTh({
@@ -101,17 +250,64 @@ function PatientsViewInner() {
   const [selMonth, setSelMonth] = useState(initMonth.split("-")[1]);
 
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [allPatients, setAllPatients] = useState<Patient[]>([]); // unfiltered for cards
+  const [bcCount, setBcCount] = useState(0);
+  const [sbCount, setSbCount] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Filters
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("doa");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [dischargeFilter, setDischargeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sbFilter, setSbFilter] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  // DOA date range
+  const [doaFrom, setDoaFrom] = useState("");
+  const [doaTo, setDoaTo] = useState("");
+  const [dateKey, setDateKey] = useState(0);
+  // Address cascade
+  const [locations, setLocations] = useState<
+    {
+      _id: string;
+      name: string;
+      blocks: {
+        _id: string;
+        name: string;
+        gramPanchayats: {
+          _id: string;
+          name: string;
+          villages: { _id: string; name: string }[];
+        }[];
+        municipalities: {
+          _id: string;
+          name: string;
+          wards: { _id: string; name: string }[];
+        }[];
+      }[];
+    }[]
+  >([]);
+  const [addrSD, setAddrSD] = useState("");
+  const [addrBlock, setAddrBlock] = useState("");
+  const [addrType, setAddrType] = useState<"" | "gp" | "municipality">("");
+  const [addrGP, setAddrGP] = useState("");
+  const [addrMun, setAddrMun] = useState("");
+  const [addrVillage, setAddrVillage] = useState("");
+  const [addrWard, setAddrWard] = useState("");
 
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBC, setIsBC] = useState(false);
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    marginBottom: 4,
+  };
+
   useEffect(() => {
     const cookies = document.cookie
       .split(";")
@@ -125,34 +321,77 @@ function PatientsViewInner() {
   }, []);
 
   useEffect(() => {
-    loadPatients();
+    fetch("/api/locations")
+      .then((r) => r.json())
+      .then((d) => setLocations(Array.isArray(d) ? d : []));
+  }, []);
+
+  useEffect(() => {
+    loadAll();
   }, [selYear, selMonth]);
 
-  async function loadPatients() {
+  async function loadAll() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/patients?month=${selYear}-${selMonth}`);
-      if (!res.ok) {
-        setPatients([]);
-        return;
+      const [patRes, bcRes, sbRes] = await Promise.all([
+        fetch(`/api/patients?month=${selYear}-${selMonth}`),
+        fetch(`/api/block-coordinators`),
+        fetch(`/api/helpers`),
+      ]);
+      if (patRes.ok) {
+        const data = await patRes.json();
+        const arr = Array.isArray(data) ? data : [];
+        setPatients(arr);
+        setAllPatients(arr);
       }
-      const data = await res.json();
-      setPatients(Array.isArray(data) ? data : []);
+      if (bcRes.ok) {
+        const d = await bcRes.json();
+        setBcCount(Array.isArray(d) ? d.length : 0);
+      }
+      if (sbRes.ok) {
+        const d = await sbRes.json();
+        setSbCount(Array.isArray(d) ? d.length : 0);
+      }
     } catch {
-      setPatients([]);
     } finally {
       setLoading(false);
     }
   }
 
-  function toggleSort(k: string) {
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir("asc");
-    }
-  }
+  // Address cascade options
+  const addrMatchedSD = locations.find((sd) => sd.name === addrSD);
+  const addrBlockOptions =
+    addrSD && addrMatchedSD
+      ? addrMatchedSD.blocks.map((b) => b.name).sort()
+      : [];
+  const addrMatchedBlock = addrMatchedSD?.blocks.find(
+    (b) => b.name === addrBlock,
+  );
+  const addrGPOptions =
+    addrBlock && addrMatchedBlock
+      ? addrMatchedBlock.gramPanchayats.map((g) => g.name).sort()
+      : [];
+  const addrMunOptions =
+    addrBlock && addrMatchedBlock
+      ? addrMatchedBlock.municipalities.map((m) => m.name).sort()
+      : [];
+  const addrMatchedGP = addrMatchedBlock?.gramPanchayats.find(
+    (g) => g.name === addrGP,
+  );
+  const addrVillageOptions =
+    addrGP && addrMatchedGP
+      ? addrMatchedGP.villages.map((v) => v.name).sort()
+      : [];
+  const addrMatchedMun = addrMatchedBlock?.municipalities.find(
+    (m) => m.name === addrMun,
+  );
+  const addrWardOptions =
+    addrMun && addrMatchedMun
+      ? addrMatchedMun.wards.map((w) => w.name).sort()
+      : [];
+  const addrAllSubDivs = locations.map((sd) => sd.name).sort();
 
+  // Unique SBs for filter
   const uniqueSBs = Array.from(
     new Map(
       patients.map((p) => [(p.helperId as any)?._id, p.helperId]),
@@ -165,6 +404,14 @@ function PatientsViewInner() {
     }))
     .filter((h) => h._id);
 
+  function toggleSort(k: string) {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir("asc");
+    }
+  }
+
   const q = search.toLowerCase();
   const displayPatients = patients
     .filter((p) => {
@@ -175,6 +422,27 @@ function PatientsViewInner() {
         return false;
       if (statusFilter && p.paymentStatus !== statusFilter) return false;
       if (sbFilter && (p.helperId as any)?._id !== sbFilter) return false;
+      // DOA date range
+      if (doaFrom || doaTo) {
+        const doa = new Date(p.doa);
+        if (doaFrom) {
+          const from = new Date(doaFrom);
+          from.setHours(0, 0, 0, 0);
+          if (doa < from) return false;
+        }
+        if (doaTo) {
+          const to = new Date(doaTo);
+          to.setHours(23, 59, 59, 999);
+          if (doa > to) return false;
+        }
+      }
+      // Address cascade filters
+      if (addrSD && p.address?.subDivision !== addrSD) return false;
+      if (addrBlock && p.address?.block !== addrBlock) return false;
+      if (addrGP && p.address?.gramPanchayat !== addrGP) return false;
+      if (addrMun && p.address?.municipality !== addrMun) return false;
+      if (addrVillage && p.address?.village !== addrVillage) return false;
+      if (addrWard && p.address?.ward !== addrWard) return false;
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -204,6 +472,46 @@ function PatientsViewInner() {
     });
 
   const showPayment = isAdmin || isBC;
+  const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
+
+  // Stats
+  const admittedCount = allPatients.filter(
+    (p) => !p.dischargeStatus || p.dischargeStatus === "admitted",
+  ).length;
+  const continuedCount = allPatients.filter(
+    (p) => p.dischargeStatus === "continued",
+  ).length;
+  const transferredCount = allPatients.filter(
+    (p) => p.dischargeStatus === "transferred",
+  ).length;
+
+  function resetFilters() {
+    setSearch("");
+    setDischargeFilter("");
+    setStatusFilter("");
+    setSbFilter("");
+    setDoaFrom("");
+    setDoaTo("");
+    setDateKey((k) => k + 1);
+    setAddrSD("");
+    setAddrBlock("");
+    setAddrType("");
+    setAddrGP("");
+    setAddrMun("");
+    setAddrVillage("");
+    setAddrWard("");
+  }
+  const hasFilter =
+    search ||
+    dischargeFilter ||
+    statusFilter ||
+    sbFilter ||
+    doaFrom ||
+    doaTo ||
+    addrSD ||
+    addrBlock ||
+    addrGP ||
+    addrMun;
 
   function exportExcel() {
     const mon = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
@@ -225,11 +533,16 @@ function PatientsViewInner() {
               ? `${p.address.municipality} / ${p.address.ward || ""}`
               : "",
         Discharge: p.dischargeStatus || "admitted",
+        "Discharge Date": p.dischargeDate
+          ? new Date(p.dischargeDate).toLocaleDateString("en-IN")
+          : "",
       };
       if (showPayment) {
         base["Incentive ₹"] = p.incentiveAmount;
         base["Payment"] =
           p.paymentStatus === "clearance" ? "Cleared" : "Pending";
+        base["Blocking Amt"] = p.blockingAmount || "";
+        base["Discharge Amt"] = p.dischargeAmount || "";
       }
       return base;
     });
@@ -242,8 +555,6 @@ function PatientsViewInner() {
     XLSX.utils.book_append_sheet(wb, ws, `Patients`);
     XLSX.writeFile(wb, `Patients_${mon}_${selYear}.xlsx`);
   }
-
-  const monLabel = MONTHS.find((m) => m.val === selMonth)?.label || selMonth;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -320,7 +631,6 @@ function PatientsViewInner() {
             marginBottom: 16,
             display: "flex",
             gap: 6,
-            alignItems: "center",
           }}
         >
           <span
@@ -341,8 +651,8 @@ function PatientsViewInner() {
             display: "flex",
             gap: 10,
             marginBottom: 20,
-            flexWrap: "wrap",
             alignItems: "center",
+            flexWrap: "wrap",
           }}
         >
           <select
@@ -388,74 +698,256 @@ function PatientsViewInner() {
           </button>
         </div>
 
-        {/* Stats pills */}
-        {patients.length > 0 && (
+        {/* ── 3 STAT CARDS ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+            gap: 14,
+            marginBottom: 24,
+          }}
+        >
+          {/* BC Card — navigates back to BC tab */}
           <div
+            onClick={() => router.push(`/view?month=${selYear}-${selMonth}`)}
             style={{
-              display: "flex",
-              gap: 8,
-              marginBottom: 16,
-              flexWrap: "wrap",
+              padding: "16px 20px",
+              background: "var(--surface)",
+              border: "2px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              transition: "all 0.15s",
             }}
           >
-            {[
-              {
-                key: "",
-                label: `All (${patients.length})`,
-                color: "var(--text-muted)",
-              },
-              {
-                key: "admitted",
-                label: `Admitted (${patients.filter((p) => !p.dischargeStatus || p.dischargeStatus === "admitted").length})`,
-                color: "var(--green)",
-              },
-              {
-                key: "continued",
-                label: `Continued (${patients.filter((p) => p.dischargeStatus === "continued").length})`,
-                color: "#2563eb",
-              },
-              {
-                key: "transferred",
-                label: `Transferred (${patients.filter((p) => p.dischargeStatus === "transferred").length})`,
-                color: "var(--red)",
-              },
-            ].map((pill) => (
-              <button
-                key={pill.key}
-                onClick={() => setDischargeFilter(pill.key)}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: dischargeFilter === pill.key ? 600 : 400,
-                  border: `1.5px solid ${dischargeFilter === pill.key ? pill.color : "var(--border)"}`,
-                  background:
-                    dischargeFilter === pill.key
-                      ? pill.color + "18"
-                      : "var(--surface)",
-                  color:
-                    dischargeFilter === pill.key
-                      ? pill.color
-                      : "var(--text-muted)",
-                  cursor: "pointer",
-                }}
-              >
-                {pill.label}
-              </button>
-            ))}
-            <span
+            <div
               style={{
-                fontSize: 12,
+                fontSize: 11,
+                fontWeight: 600,
                 color: "var(--text-muted)",
-                alignSelf: "center",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
               }}
             >
-              Showing {displayPatients.length}
-            </span>
+              Block Coordinators
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "var(--text)",
+                marginTop: 4,
+              }}
+            >
+              {bcCount}
+            </div>
+            <div
+              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+            >
+              ← View list
+            </div>
           </div>
-        )}
+          {/* SB Card */}
+          <div
+            onClick={() =>
+              router.push(`/view?month=${selYear}-${selMonth}&section=sb`)
+            }
+            style={{
+              padding: "16px 20px",
+              background: "var(--surface)",
+              border: "2px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Swasthya Bondhu
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "var(--text)",
+                marginTop: 4,
+              }}
+            >
+              {sbCount}
+            </div>
+            <div
+              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
+            >
+              ← View list
+            </div>
+          </div>
+          {/* Patients Card — active */}
+          <div
+            style={{
+              padding: "16px 20px",
+              background: "var(--green-dark)",
+              border: "2px solid var(--green-dark)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.7)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Patients
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "#fff",
+                marginTop: 4,
+              }}
+            >
+              {allPatients.length}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "rgba(255,255,255,0.6)",
+                marginTop: 2,
+              }}
+            >
+              This month
+            </div>
+          </div>
+        </div>
+        <div className="flex">
+          {/* Admitted */}
+          <div
+            onClick={() =>
+              setDischargeFilter(
+                dischargeFilter === "admitted" ? "" : "admitted",
+              )
+            }
+            style={{
+              padding: "16px 20px",
+              background:
+                dischargeFilter === "admitted" ? "#dcfce7" : "var(--surface)",
+              border: `2px solid ${dischargeFilter === "admitted" ? "var(--green)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--green)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Admitted
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "var(--green)",
+                marginTop: 4,
+              }}
+            >
+              {admittedCount}
+            </div>
+          </div>
+          {/* Continued */}
+          <div
+            onClick={() =>
+              setDischargeFilter(
+                dischargeFilter === "continued" ? "" : "continued",
+              )
+            }
+            style={{
+              padding: "16px 20px",
+              background:
+                dischargeFilter === "continued" ? "#dbeafe" : "var(--surface)",
+              border: `2px solid ${dischargeFilter === "continued" ? "#2563eb" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#2563eb",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Continued
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "#2563eb",
+                marginTop: 4,
+              }}
+            >
+              {continuedCount}
+            </div>
+          </div>
+          {/* Transferred */}
+          <div
+            onClick={() =>
+              setDischargeFilter(
+                dischargeFilter === "transferred" ? "" : "transferred",
+              )
+            }
+            style={{
+              padding: "16px 20px",
+              background:
+                dischargeFilter === "transferred"
+                  ? "#fee2e2"
+                  : "var(--surface)",
+              border: `2px solid ${dischargeFilter === "transferred" ? "var(--red)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--red)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Transferred
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: "var(--red)",
+                marginTop: 4,
+              }}
+            >
+              {transferredCount}
+            </div>
+          </div>
+        </div>
 
-        {/* Filters */}
+        {/* ── FILTERS ── */}
         <div
           style={{
             display: "flex",
@@ -465,74 +957,57 @@ function PatientsViewInner() {
             alignItems: "flex-end",
           }}
         >
+          {/* Search */}
           <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                marginBottom: 4,
-              }}
-            >
-              Search
-            </div>
+            <div style={labelStyle}>Search</div>
             <input
               className="form-input"
               placeholder="Name, mobile, IPD, SB..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 250, fontSize: 13 }}
+              style={{ width: 230, fontSize: 13 }}
+            />
+          </div>
+          {/* SB filter */}
+          <div>
+            <div style={labelStyle}>Swasthya Bondhu</div>
+            <SearchableSelect
+              options={uniqueSBs.map((h) => ({
+                label: `${h.name} — ${h.block}`,
+                value: h._id,
+              }))}
+              value={sbFilter}
+              onChange={setSbFilter}
+              placeholder="All SBs"
+            />
+          </div>
+          {/* DOA Date range */}
+          <div>
+            <div style={labelStyle}>DOA From</div>
+            <input
+              type="date"
+              className="form-input"
+              key={`doa-from-${dateKey}`}
+              value={doaFrom}
+              onChange={(e) => setDoaFrom(e.target.value)}
+              style={{ fontSize: 13, colorScheme: "light" }}
             />
           </div>
           <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                marginBottom: 4,
-              }}
-            >
-              Swasthya Bondhu
-            </div>
-            <select
-              style={{
-                fontSize: 13,
-                padding: "7px 10px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                minWidth: 180,
-              }}
-              value={sbFilter}
-              onChange={(e) => setSbFilter(e.target.value)}
-            >
-              <option value="">All</option>
-              {uniqueSBs.map((h) => (
-                <option key={h._id} value={h._id}>
-                  {h.name} — {h.block}
-                </option>
-              ))}
-            </select>
+            <div style={labelStyle}>DOA To</div>
+            <input
+              type="date"
+              className="form-input"
+              key={`doa-to-${dateKey}`}
+              value={doaTo}
+              onChange={(e) => setDoaTo(e.target.value)}
+              style={{ fontSize: 13, colorScheme: "light" }}
+            />
           </div>
+          {/* Payment status */}
           {showPayment && (
             <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  marginBottom: 4,
-                }}
-              >
-                Payment
-              </div>
+              <div style={labelStyle}>Payment</div>
               <select
                 style={{
                   fontSize: 13,
@@ -550,22 +1025,170 @@ function PatientsViewInner() {
               </select>
             </div>
           )}
-          {(search || sbFilter || dischargeFilter || statusFilter) && (
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ alignSelf: "flex-end" }}
-              onClick={() => {
-                setSearch("");
-                setSbFilter("");
-                setDischargeFilter("");
-                setStatusFilter("");
+          {/* Address — Sub Division */}
+          <div>
+            <div style={labelStyle}>Sub Division</div>
+            <SearchableSelect
+              options={addrAllSubDivs.map((s) => ({ label: s, value: s }))}
+              value={addrSD}
+              onChange={(v) => {
+                setAddrSD(v);
+                setAddrBlock("");
+                setAddrType("");
+                setAddrGP("");
+                setAddrMun("");
+                setAddrVillage("");
+                setAddrWard("");
               }}
-            >
-              ✕ Reset
-            </button>
+              placeholder="All Sub Divs"
+            />
+          </div>
+          {/* Block */}
+          {addrSD && (
+            <div>
+              <div style={labelStyle}>Block</div>
+              <SearchableSelect
+                options={addrBlockOptions.map((s) => ({ label: s, value: s }))}
+                value={addrBlock}
+                onChange={(v) => {
+                  setAddrBlock(v);
+                  setAddrType("");
+                  setAddrGP("");
+                  setAddrMun("");
+                  setAddrVillage("");
+                  setAddrWard("");
+                }}
+                placeholder="All Blocks"
+              />
+            </div>
           )}
+          {/* Type */}
+          {addrBlock &&
+            (addrGPOptions.length > 0 || addrMunOptions.length > 0) && (
+              <div>
+                <div style={labelStyle}>Type</div>
+                <div
+                  style={{
+                    display: "flex",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {(["", "gp", "municipality"] as const).map((opt, i) => (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        setAddrType(opt);
+                        setAddrGP("");
+                        setAddrMun("");
+                        setAddrVillage("");
+                        setAddrWard("");
+                      }}
+                      style={{
+                        padding: "7px 10px",
+                        fontSize: 12,
+                        fontWeight: addrType === opt ? 600 : 400,
+                        background:
+                          addrType === opt
+                            ? "var(--green-dark)"
+                            : "var(--surface)",
+                        color: addrType === opt ? "#fff" : "var(--text-muted)",
+                        border: "none",
+                        borderLeft: i > 0 ? "1px solid var(--border)" : "none",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {opt === "" ? "All" : opt === "gp" ? "🌿 GP" : "🏙 Mun"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          {/* GP */}
+          {addrBlock && addrType === "gp" && addrGPOptions.length > 0 && (
+            <div>
+              <div style={labelStyle}>Gram Panchayat</div>
+              <SearchableSelect
+                options={addrGPOptions.map((s) => ({ label: s, value: s }))}
+                value={addrGP}
+                onChange={(v) => {
+                  setAddrGP(v);
+                  setAddrVillage("");
+                }}
+                placeholder="All GPs"
+              />
+            </div>
+          )}
+          {/* Village */}
+          {addrGP && addrVillageOptions.length > 0 && (
+            <div>
+              <div style={labelStyle}>Village</div>
+              <SearchableSelect
+                options={addrVillageOptions.map((s) => ({
+                  label: s,
+                  value: s,
+                }))}
+                value={addrVillage}
+                onChange={setAddrVillage}
+                placeholder="All Villages"
+              />
+            </div>
+          )}
+          {/* Municipality */}
+          {addrBlock &&
+            addrType === "municipality" &&
+            addrMunOptions.length > 0 && (
+              <div>
+                <div style={labelStyle}>Municipality</div>
+                <SearchableSelect
+                  options={addrMunOptions.map((s) => ({ label: s, value: s }))}
+                  value={addrMun}
+                  onChange={(v) => {
+                    setAddrMun(v);
+                    setAddrWard("");
+                  }}
+                  placeholder="All Municipalities"
+                />
+              </div>
+            )}
+          {/* Ward */}
+          {addrMun && addrWardOptions.length > 0 && (
+            <div>
+              <div style={labelStyle}>Ward</div>
+              <SearchableSelect
+                options={addrWardOptions.map((s) => ({ label: s, value: s }))}
+                value={addrWard}
+                onChange={setAddrWard}
+                placeholder="All Wards"
+              />
+            </div>
+          )}
+          {/* Showing count + Reset */}
+          <div
+            style={{
+              alignSelf: "flex-end",
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Showing {displayPatients.length}
+            </span>
+            {hasFilter && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={resetFilters}
+              >
+                ✕ Reset
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* ── TABLE ── */}
         <div className="table-wrapper">
           <table>
             <thead>
