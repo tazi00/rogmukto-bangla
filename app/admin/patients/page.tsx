@@ -387,8 +387,10 @@ export default function AdminPatientsPage() {
                   <SortTh label="DOA" k="doa" />
                   <th>Swasthya Bondhu</th>
                   <th>Address</th>
-                  <th>Incentive</th>
-                  <th>Status</th>
+                  <th>Blocking Amt</th>
+                  <th>Discharge Amt</th>
+                  <th>Discharge Status</th>
+
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -436,8 +438,11 @@ export default function AdminPatientsPage() {
                             ? `${p.address.municipality}${p.address.ward ? ` / ${p.address.ward}` : ""}`
                             : "—"}
                       </td>
-                      <td style={{ fontWeight: 600 }}>₹{p.incentiveAmount}</td>
-                      <td>
+                      <td style={{ fontWeight: 600 }}>₹{p.blockingAmount}</td>
+                      <td style={{ fontWeight: 600 }}>₹{p.dischargeAmount}</td>
+                      <td style={{ fontWeight: 600 }}>{p.dischargeStatus}</td>
+
+                      {/* <td>
                         <span
                           className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
                         >
@@ -445,7 +450,7 @@ export default function AdminPatientsPage() {
                             ? "✓ Cleared"
                             : "⏳ Pending"}
                         </span>
-                      </td>
+                      </td> */}
                       <td>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button
@@ -724,7 +729,9 @@ export default function AdminPatientsPage() {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                          pincode: e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6),
                         })
                       }
                       placeholder="6-digit pincode"

@@ -749,9 +749,7 @@ function ViewPageInner() {
             marginBottom: 20,
           }}
         >
-          <h3 className="text-xl capitalize">
-            {role} Reports 
-          </h3>
+          <h3 className="text-xl capitalize">{role} Reports</h3>
 
           <button
             className="btn btn-secondary"
@@ -761,7 +759,6 @@ function ViewPageInner() {
             📥 Export Excel
           </button>
         </div>
-
         {/* Stat Cards */}
         <div
           style={{
@@ -925,7 +922,6 @@ function ViewPageInner() {
             </div>
           </div>
         </div>
-
         {/* ── BC TABLE ── */}
         {activeSection === "bc" && isAdmin && (
           <div>
@@ -1059,7 +1055,7 @@ function ViewPageInner() {
                     />
                     <th>Block</th>
                     <SortTh
-                      label="SBs"
+                      label="Swasthya Bondhu"
                       k="sbCount"
                       sortKey={bcSortKey}
                       sortDir={bcSortDir}
@@ -1168,7 +1164,6 @@ function ViewPageInner() {
             </div>
           </div>
         )}
-
         {/* ── SB TABLE ── */}
         {activeSection === "sb" && (
           <div>
@@ -1531,9 +1526,9 @@ function ViewPageInner() {
                         <div className="empty-state">
                           <p>
                             {sbIdFilter === "without"
-                              ? "All SBs have IDs."
+                              ? "All Swasthya Bondhu have IDs."
                               : sbIdFilter === "with"
-                                ? "No SBs with ID found."
+                                ? "No Swasthya Bondhu with ID found."
                                 : "No data found."}
                           </p>
                         </div>
@@ -1644,7 +1639,6 @@ function ViewPageInner() {
             </div>
           </div>
         )}
-
         {/* ── PATIENT TABLE ── */}
         {activeSection === "patient" &&
           (() => {
@@ -2218,8 +2212,8 @@ function ViewPageInner() {
                         <th>Address</th>
                         {showPayment && (
                           <>
-                            <th>Incentive</th>
-                            <th>Payment</th>
+                            <th>Blocking Amt</th>
+                            <th>Discharge Amt</th>
                           </>
                         )}
                         <th>Discharge</th>
@@ -2309,9 +2303,12 @@ function ViewPageInner() {
                             {showPayment && (
                               <>
                                 <td style={{ fontWeight: 600 }}>
-                                  ₹{p.incentiveAmount}
+                                  ₹{p.blockingAmount}
                                 </td>
-                                <td>
+                                <td style={{ fontWeight: 600 }}>
+                                  ₹{p.dischargeAmount}
+                                </td>
+                                {/* <td>
                                   <span
                                     className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
                                   >
@@ -2319,7 +2316,7 @@ function ViewPageInner() {
                                       ? "✓ Cleared"
                                       : "⏳ Pending"}
                                   </span>
-                                </td>
+                                </td> */}
                               </>
                             )}
                             <td>
@@ -2350,158 +2347,162 @@ function ViewPageInner() {
               </div>
             );
           })()}
+        {selectedPatient && (
+          <div
+            className="modal-overlay"
+            onClick={(e) =>
+              e.target === e.currentTarget && setSelectedPatient(null)
+            }
+          >
+            <div
+              className="modal"
+              style={{ maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}
+            >
+              <div className="modal-header">
+                <h3>{selectedPatient.name}</h3>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedPatient(null)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                  }}
+                >
+                  {[
+                    { label: "Mobile", value: selectedPatient.mobile },
+                    { label: "IPD No.", value: selectedPatient.ipdNo },
+                    {
+                      label: "DOA",
+                      value: new Date(selectedPatient.doa).toLocaleDateString(
+                        "en-IN",
+                      ),
+                    },
+                    {
+                      label: "Aadhar",
+                      value: selectedPatient.aadharNumber || "—",
+                    },
+                    {
+                      label: "Swastha Sath",
+                      value: selectedPatient.swasthaSathNumber || "—",
+                    },
+                    { label: "Pincode", value: selectedPatient.pincode || "—" },
+                    {
+                      label: "SB Name",
+                      value: (selectedPatient.helperId as any)?.name || "—",
+                    },
+                    {
+                      label: "Block",
+                      value: (selectedPatient.helperId as any)?.block || "—",
+                    },
+                    ...(isAdmin || isBC
+                      ? [
+                          {
+                            label: "Incentive",
+                            value: `₹${selectedPatient.incentiveAmount}`,
+                          },
+                          {
+                            label: "Payment",
+                            value:
+                              selectedPatient.paymentStatus === "clearance"
+                                ? "✓ Cleared"
+                                : "⏳ Pending",
+                          },
+                          {
+                            label: "Blocking Amt",
+                            value: selectedPatient.blockingAmount
+                              ? `₹${selectedPatient.blockingAmount}`
+                              : "—",
+                          },
+                          {
+                            label: "Discharge Amt",
+                            value: selectedPatient.dischargeAmount
+                              ? `₹${selectedPatient.dischargeAmount}`
+                              : "—",
+                          },
+                        ]
+                      : []),
+                    {
+                      label: "Discharge",
+                      value:
+                        selectedPatient.dischargeStatus === "continued"
+                          ? "Continued"
+                          : selectedPatient.dischargeStatus === "transferred"
+                            ? "Transferred"
+                            : "Admitted",
+                    },
+                    {
+                      label: "Discharge Date",
+                      value: selectedPatient.dischargeDate
+                        ? new Date(
+                            selectedPatient.dischargeDate,
+                          ).toLocaleDateString("en-IN")
+                        : "—",
+                    },
+                  ].map((f: any) => (
+                    <div key={f.label}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {f.label}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>
+                        {f.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {selectedPatient.address?.type && (
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: "12px 16px",
+                      background: "var(--gray-50)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Address
+                    </div>
+                    <div style={{ fontSize: 13 }}>
+                      {selectedPatient.address.type === "gp"
+                        ? `🌿 ${selectedPatient.address.gramPanchayat}${selectedPatient.address.village ? ` / ${selectedPatient.address.village}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`
+                        : `🏙 ${selectedPatient.address.municipality}${selectedPatient.address.ward ? ` / ${selectedPatient.address.ward}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        ;
       </div>
     </div>
   );
 
   {
     /* Patient Detail Modal */
-  }
-  {
-    selectedPatient && (
-      <div
-        className="modal-overlay"
-        onClick={(e) =>
-          e.target === e.currentTarget && setSelectedPatient(null)
-        }
-      >
-        <div
-          className="modal"
-          style={{ maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}
-        >
-          <div className="modal-header">
-            <h3>{selectedPatient.name}</h3>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setSelectedPatient(null)}
-            >
-              ✕
-            </button>
-          </div>
-          <div className="modal-body">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
-              {[
-                { label: "Mobile", value: selectedPatient.mobile },
-                { label: "IPD No.", value: selectedPatient.ipdNo },
-                {
-                  label: "DOA",
-                  value: new Date(selectedPatient.doa).toLocaleDateString(
-                    "en-IN",
-                  ),
-                },
-                { label: "Aadhar", value: selectedPatient.aadharNumber || "—" },
-                {
-                  label: "Swastha Sath",
-                  value: selectedPatient.swasthaSathNumber || "—",
-                },
-                { label: "Pincode", value: selectedPatient.pincode || "—" },
-                {
-                  label: "SB Name",
-                  value: (selectedPatient.helperId as any)?.name || "—",
-                },
-                {
-                  label: "Block",
-                  value: (selectedPatient.helperId as any)?.block || "—",
-                },
-                ...(isAdmin || isBC
-                  ? [
-                      {
-                        label: "Incentive",
-                        value: `₹${selectedPatient.incentiveAmount}`,
-                      },
-                      {
-                        label: "Payment",
-                        value:
-                          selectedPatient.paymentStatus === "clearance"
-                            ? "✓ Cleared"
-                            : "⏳ Pending",
-                      },
-                      {
-                        label: "Blocking Amt",
-                        value: selectedPatient.blockingAmount
-                          ? `₹${selectedPatient.blockingAmount}`
-                          : "—",
-                      },
-                      {
-                        label: "Discharge Amt",
-                        value: selectedPatient.dischargeAmount
-                          ? `₹${selectedPatient.dischargeAmount}`
-                          : "—",
-                      },
-                    ]
-                  : []),
-                {
-                  label: "Discharge",
-                  value:
-                    selectedPatient.dischargeStatus === "continued"
-                      ? "Continued"
-                      : selectedPatient.dischargeStatus === "transferred"
-                        ? "Transferred"
-                        : "Admitted",
-                },
-                {
-                  label: "Discharge Date",
-                  value: selectedPatient.dischargeDate
-                    ? new Date(
-                        selectedPatient.dischargeDate,
-                      ).toLocaleDateString("en-IN")
-                    : "—",
-                },
-              ].map((f: any) => (
-                <div key={f.label}>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      marginBottom: 2,
-                    }}
-                  >
-                    {f.label}
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.value}</div>
-                </div>
-              ))}
-            </div>
-            {selectedPatient.address?.type && (
-              <div
-                style={{
-                  marginTop: 16,
-                  padding: "12px 16px",
-                  background: "var(--gray-50)",
-                  borderRadius: "var(--radius-sm)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 6,
-                  }}
-                >
-                  Address
-                </div>
-                <div style={{ fontSize: 13 }}>
-                  {selectedPatient.address.type === "gp"
-                    ? `🌿 ${selectedPatient.address.gramPanchayat}${selectedPatient.address.village ? ` / ${selectedPatient.address.village}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`
-                    : `🏙 ${selectedPatient.address.municipality}${selectedPatient.address.ward ? ` / ${selectedPatient.address.ward}` : ""} — ${selectedPatient.address.block}, ${selectedPatient.address.subDivision}`}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
   }
 }
