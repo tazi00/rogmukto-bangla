@@ -68,6 +68,8 @@ export async function GET(req: NextRequest) {
           helper.gramPanchayats?.[0]?.gpName ||
           helper.municipalities?.[0]?.municipalityName ||
           "—",
+        gramPanchayats: helper.gramPanchayats || [],
+        municipalities: helper.municipalities || [],
         tag: helper.tag,
         createdAt: helper.createdAt,
         blockCoordinatorId: helper.blockCoordinatorId,

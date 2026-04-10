@@ -442,29 +442,45 @@ function SBDetailInner() {
               <div style={{ display: "flex", gap: 20 }}>
                 {[
                   { label: "Patients", value: patients.length },
+
                   {
-                    label: "Admitted",
-                    value: patients.filter(
-                      (p) =>
-                        !p.dischargeStatus || p.dischargeStatus === "admitted",
-                    ).length,
+                    label: "Blocking Amt",
+                    value: patients.reduce(
+                      (s, p) => s + (p?.blockingAmount || 0),
+                      0,
+                    ),
                   },
-                  ...(showPayment
-                    ? [
-                        {
-                          label: "Total ₹",
-                          value: `₹${patients.reduce((s, p) => s + p.incentiveAmount, 0).toLocaleString()}`,
-                        },
-                        {
-                          label: "Pending",
-                          value: `₹${patients
-                            .filter((p) => p.paymentStatus === "pending")
-                            .reduce((s, p) => s + p.incentiveAmount, 0)
-                            .toLocaleString()}`,
-                          accent: true,
-                        },
-                      ]
-                    : []),
+                  {
+                    label: "Discharge Amt",
+                    value: patients.reduce(
+                      (s, p) => s + (p?.dischargeAmount || 0),
+                      0,
+                    ),
+                  },
+                  // {
+                  //   label: "Discharged",
+                  //   value: patients.filter(
+                  //     (p) =>
+                  //       !p.dischargeStatus || p.dischargeStatus === "admitted",
+                  //   ).length,
+                  // },
+
+                  // ...(showPayment
+                  //   ? [
+                  //       {
+                  //         label: "Total ₹",
+                  //         value: `₹${patients.reduce((s, p) => s + p.incentiveAmount, 0).toLocaleString()}`,
+                  //       },
+                  //       {
+                  //         label: "Pending",
+                  //         value: `₹${patients
+                  //           .filter((p) => p.paymentStatus === "pending")
+                  //           .reduce((s, p) => s + p.incentiveAmount, 0)
+                  //           .toLocaleString()}`,
+                  //         accent: true,
+                  //       },
+                  //     ]
+                  //   : []),
                 ].map((s: any) => (
                   <div key={s.label} style={{ textAlign: "right" }}>
                     <div
@@ -616,11 +632,11 @@ function SBDetailInner() {
                   <th>Address</th>
                   {showPayment && (
                     <>
-                      <th>Incentive</th>
-                      <th>Payment</th>
+                      <th>Blocking Amt</th>
+                      <th>Discharge Amt</th>
+                      <th>Status</th>
                     </>
                   )}
-                  <th>Discharge</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -672,9 +688,15 @@ function SBDetailInner() {
                       {showPayment && (
                         <>
                           <td style={{ fontWeight: 600 }}>
-                            ₹{p.incentiveAmount}
+                            ₹{p.blockingAmount}
                           </td>
-                          <td>
+                          <td style={{ fontWeight: 600 }}>
+                            ₹{p.dischargeAmount}
+                          </td>
+                          {/* <td style={{ fontWeight: 600 }}>
+                            {p.dischargeStatus}
+                          </td> */}
+                          {/* <td>
                             <span
                               className={`badge ${p.paymentStatus === "clearance" ? "badge-green" : "badge-amber"}`}
                             >
@@ -682,7 +704,7 @@ function SBDetailInner() {
                                 ? "✓ Cleared"
                                 : "⏳ Pending"}
                             </span>
-                          </td>
+                          </td> */}
                         </>
                       )}
                       <td>
@@ -756,7 +778,7 @@ function SBDetailInner() {
                     value: selectedPatient.aadharNumber || "—",
                   },
                   {
-                    label: "Swastha Sath No.",
+                    label: "swasthya sathi No.",
                     value: selectedPatient.swasthaSathNumber || "—",
                   },
                   { label: "Pincode", value: selectedPatient.pincode || "—" },

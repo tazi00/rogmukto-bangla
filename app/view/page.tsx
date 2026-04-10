@@ -291,7 +291,6 @@ function ViewPageInner() {
   const [bcDateFrom, setBcDateFrom] = useState("");
   const [bcDateTo, setBcDateTo] = useState("");
   const [dateKey, setDateKey] = useState(0);
-
   // Locations from DB (for SubDiv/Block dropdowns)
   const [locations, setLocations] = useState<
     {
@@ -336,7 +335,7 @@ function ViewPageInner() {
   const [sbDateFrom, setSbDateFrom] = useState("");
   const [sbDateTo, setSbDateTo] = useState("");
   const [sbDateKey, setSbDateKey] = useState(0);
-
+  const [allHelpers, setAllHelpers] = useState<any[]>([]);
   // Patient data + filters
   const [patientStats, setPatientStats] = useState({ total: 0 });
   const [allPatients, setAllPatients] = useState<any[]>([]);
@@ -354,13 +353,23 @@ function ViewPageInner() {
   const [patAddrType, setPatAddrType] = useState<"" | "gp" | "municipality">(
     "",
   );
+  const [patBCFilter, setPatBCFilter] = useState("");
+
   const [patAddrGP, setPatAddrGP] = useState("");
   const [patAddrMun, setPatAddrMun] = useState("");
   const [patAddrVillage, setPatAddrVillage] = useState("");
   const [patAddrWard, setPatAddrWard] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    fetch("/api/locations")
+      .then((r) => r.json())
+      .then((d) => setLocations(Array.isArray(d) ? d : []));
 
+    fetch("/api/helpers")
+      .then((r) => r.json())
+      .then((d) => setAllHelpers(Array.isArray(d) ? d : []));
+  }, []);
   useEffect(() => {
     const month = searchParams.get("month");
     if (month) {
@@ -1356,7 +1365,9 @@ function ViewPageInner() {
                 </div>
               )}
               {/* Block Coordinator */}
-              {(isAdmin || role === "receptionist") && (
+              {(isAdmin ||
+                role === "receptionist" ||
+                role === "block-coordinator") && (
                 <div>
                   <div style={labelStyle}>Block Coordinator</div>
                   <SearchableSelect
@@ -1491,6 +1502,8 @@ function ViewPageInner() {
                       onSort={toggleSBSort}
                     />
                     <th>GP</th>
+                    <th>Municipality</th>
+
                     {(isAdmin || role === "receptionist") && (
                       <th>Block Coordinator</th>
                     )}
@@ -1593,7 +1606,63 @@ function ViewPageInner() {
                         </td>
                         <td style={{ fontSize: 12 }}>{row.helper.block}</td>
                         <td style={{ fontSize: 12 }}>
-                          {row.helper.gramPanchayat}
+                          {(row.helper as any).gramPanchayats?.length > 0 ? (
+                            <div>
+                              <div style={{ fontWeight: 500 }}>
+                                {(row.helper as any).gramPanchayats[0].gpName}
+                              </div>
+                              {(row.helper as any).gramPanchayats[0].villages
+                                ?.length > 0 && (
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                  }}
+                                >
+                                  {
+                                    (row.helper as any).gramPanchayats[0]
+                                      .villages[0]
+                                  }
+                                  {(row.helper as any).gramPanchayats[0]
+                                    .villages.length > 1 &&
+                                    ` +${(row.helper as any).gramPanchayats[0].villages.length - 1}`}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {(row.helper as any).municipalities?.length > 0 ? (
+                            <div>
+                              <div style={{ fontWeight: 500 }}>
+                                {
+                                  (row.helper as any).municipalities[0]
+                                    .municipalityName
+                                }
+                              </div>
+                              {(row.helper as any).municipalities[0].wards
+                                ?.length > 0 && (
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                  }}
+                                >
+                                  {
+                                    (row.helper as any).municipalities[0]
+                                      .wards[0]
+                                  }
+                                  {(row.helper as any).municipalities[0].wards
+                                    .length > 1 &&
+                                    ` +${(row.helper as any).municipalities[0].wards.length - 1}`}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         {(isAdmin || role === "receptionist") && (
                           <td>
@@ -1673,15 +1742,19 @@ function ViewPageInner() {
               patAddrMun && patMatchedMun
                 ? patMatchedMun.wards.map((w) => w.name).sort()
                 : [];
-            const uniqueSBs = Array.from(
-              new Map(
-                allPatients.map((p) => [(p.helperId as any)?._id, p.helperId]),
-              ).entries(),
-            )
-              .map(([id, h]) => ({
-                _id: id,
-                name: (h as any)?.name || "",
-                block: (h as any)?.block || "",
+            const uniqueSBs = allHelpers
+              .filter((h) => {
+                if (!patBCFilter) return true;
+                const bcId =
+                  typeof h.blockCoordinatorId === "object"
+                    ? h.blockCoordinatorId?._id
+                    : h.blockCoordinatorId;
+                return bcId?.toString() === patBCFilter;
+              })
+              .map((h) => ({
+                _id: h._id,
+                name: h.name,
+                block: h.block,
               }))
               .filter((h) => h._id);
             const pq = patSearch.toLowerCase();
@@ -1696,6 +1769,13 @@ function ViewPageInner() {
                   return false;
                 if (patSbFilter && (p.helperId as any)?._id !== patSbFilter)
                   return false;
+                if (patBCFilter) {
+                  const sbBCId =
+                    typeof (p.helperId as any)?.blockCoordinatorId === "object"
+                      ? (p.helperId as any)?.blockCoordinatorId?._id
+                      : (p.helperId as any)?.blockCoordinatorId;
+                  if (sbBCId?.toString() !== patBCFilter) return false;
+                }
                 if (patDoaFrom || patDoaTo) {
                   const doa = new Date(p.doa);
                   if (patDoaFrom) {
@@ -1758,6 +1838,7 @@ function ViewPageInner() {
               patDischargeFilter ||
               patStatusFilter ||
               patSbFilter ||
+              patBCFilter ||
               patDoaFrom ||
               patDoaTo ||
               patAddrSD;
@@ -1896,6 +1977,21 @@ function ViewPageInner() {
                     />
                   </div>
                   <div>
+                    <div style={labelStyle}>Block Coordinator</div>
+                    <SearchableSelect
+                      options={bcPerf.map((bc) => ({
+                        label: `${bc.name} — ${bc.subDivision}`,
+                        value: bc._id,
+                      }))}
+                      value={patBCFilter}
+                      onChange={(v) => {
+                        setPatBCFilter(v);
+                        setPatSbFilter("");
+                      }}
+                      placeholder="All BCs"
+                    />
+                  </div>
+                  <div>
                     <div style={labelStyle}>Swasthya Bondhu</div>
                     <SearchableSelect
                       options={uniqueSBs.map((h) => ({
@@ -1929,7 +2025,7 @@ function ViewPageInner() {
                       style={{ fontSize: 13, colorScheme: "light" }}
                     />
                   </div>
-                  {showPayment && (
+                  {/* {showPayment && (
                     <div>
                       <div style={labelStyle}>Payment</div>
                       <select
@@ -1948,7 +2044,7 @@ function ViewPageInner() {
                         <option value="clearance">Cleared</option>
                       </select>
                     </div>
-                  )}
+                  )} */}
                   <div>
                     <div style={labelStyle}>Sub Division</div>
                     <SearchableSelect
@@ -2216,7 +2312,7 @@ function ViewPageInner() {
                             <th>Discharge Amt</th>
                           </>
                         )}
-                        <th>Discharge</th>
+                        <th>Status</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -2389,7 +2485,7 @@ function ViewPageInner() {
                       value: selectedPatient.aadharNumber || "—",
                     },
                     {
-                      label: "Swastha Sath",
+                      label: "swasthya sathi No.",
                       value: selectedPatient.swasthaSathNumber || "—",
                     },
                     { label: "Pincode", value: selectedPatient.pincode || "—" },

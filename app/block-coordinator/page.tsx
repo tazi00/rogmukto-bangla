@@ -485,7 +485,7 @@ export default function BCPanel() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <a href="/view" target="_blank" className="btn btn-secondary btn-sm">
-            ↗ View Panel
+            ↗ Report
           </a>
           <button
             className="btn btn-secondary btn-sm"

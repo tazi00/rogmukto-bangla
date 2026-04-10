@@ -1,24 +1,44 @@
-'use client'
-import { useEffect, useState } from 'react'
+"use client";
+import { useEffect, useState } from "react";
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ helpers: 0, patients: 0, pending: 0, cleared: 0 })
+  const [stats, setStats] = useState({
+    blockCoordinators: 0,
+    helpers: 0,
+    patients: 0,
+    pending: 0,
+    cleared: 0,
+  });
 
   useEffect(() => {
     async function load() {
-      const [helpers, patients] = await Promise.all([
-        fetch('/api/helpers').then(r => r.json()),
-        fetch('/api/patients').then(r => r.json()),
-      ])
-      const pending = patients.filter((p: any) => p.paymentStatus === 'pending').length
-      const cleared = patients.filter((p: any) => p.paymentStatus === 'cleared').length
-      setStats({ helpers: helpers.length, patients: patients.length, pending, cleared })
+      const [helpers, patients, bcPerformance] = await Promise.all([
+        fetch("/api/helpers").then((r) => r.json()),
+        fetch("/api/patients").then((r) => r.json()),
+        fetch("/api/bc-performance").then((r) => r.json()),
+      ]);
+      const pending = patients.filter(
+        (p: any) => p.paymentStatus === "pending",
+      ).length;
+      const cleared = patients.filter(
+        (p: any) => p.paymentStatus === "cleared",
+      ).length;
+      setStats({
+        helpers: helpers.length,
+        patients: patients.length,
+        blockCoordinators: bcPerformance.length,
+        pending,
+        cleared,
+      });
     }
-    load()
-  }, [])
+    load();
+  }, []);
 
-  const now = new Date()
-  const month = now.toLocaleString('default', { month: 'long', year: 'numeric' })
+  const now = new Date();
+  const month = now.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <>
@@ -38,6 +58,11 @@ export default function AdminDashboard() {
           }}
         >
           <div className="stat-card">
+            <div className="stat-label">Total Block Coordinators</div>
+            <div className="stat-value">{stats.blockCoordinators}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+          <div className="stat-card">
             <div className="stat-label">Swasthya Bondhu</div>
             <div className="stat-value">{stats.helpers}</div>
             <div className="stat-sub">Registered Swasthya Bondhu</div>
@@ -47,7 +72,7 @@ export default function AdminDashboard() {
             <div className="stat-value">{stats.patients}</div>
             <div className="stat-sub">All time</div>
           </div>
-          <div className="stat-card">
+          {/* <div className="stat-card">
             <div className="stat-label">Pending Payment</div>
             <div className="stat-value" style={{ color: "var(--accent)" }}>
               {stats.pending}
@@ -60,7 +85,7 @@ export default function AdminDashboard() {
               {stats.cleared}
             </div>
             <div className="stat-sub">Payments done</div>
-          </div>
+          </div> */}
         </div>
 
         <div className="card" style={{ padding: "20px 24px" }}>
@@ -85,9 +110,6 @@ export default function AdminDashboard() {
             </a>
             <a href="/admin/patients" className="btn btn-secondary">
               View All Patients
-            </a>
-            <a href="/view" target="_blank" className="btn btn-secondary">
-              ↗ Open View Panel
             </a>
           </div>
         </div>

@@ -479,7 +479,9 @@ export default function HelpersPage() {
               ) : (
                 filtered.map((h) => (
                   <tr key={h._id}>
-                    <td style={{ fontWeight: 500 }}>{h.helperId}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      {h?.helperId ? h.helperId : "—"}
+                    </td>
                     <td style={{ fontWeight: 500 }}>{h.name}</td>
                     <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                       {h.phone}
@@ -828,9 +830,7 @@ export default function HelpersPage() {
                             fontSize: 11,
                             color: "var(--text-muted)",
                           }}
-                        >
-                          (ek ya dono choose karo)
-                        </span>
+                        ></span>
                       </label>
                       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
                         <label

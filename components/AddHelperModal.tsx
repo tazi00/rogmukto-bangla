@@ -663,7 +663,7 @@ export default function AddHelperModal({
                       setSelectedGP("");
                       setSelectedMun("");
                     }}
-                    onCreateOption={isAdmin ? createSD : undefined}
+                    onCreateOption={createSD}
                     creating={creating}
                     placeholder="Search or add new..."
                   />
@@ -690,9 +690,7 @@ export default function AddHelperModal({
                       setSelectedGP("");
                       setSelectedMun("");
                     }}
-                    onCreateOption={
-                      selectedSDId && isAdmin ? createBlock : undefined
-                    }
+                    onCreateOption={selectedSDId ? createBlock : undefined}
                     creating={creating}
                     placeholder={
                       selectedSDId
@@ -759,7 +757,7 @@ export default function AddHelperModal({
                         setSelectedGP(v);
                         setSelectedVillages([]);
                       }}
-                      onCreateOption={isAdmin ? createGP : undefined}
+                      onCreateOption={createGP}
                       creating={creating}
                       placeholder="Search or add Gram Panchayat..."
                     />
@@ -786,7 +784,7 @@ export default function AddHelperModal({
                             if (v && !selectedVillages.includes(v))
                               setSelectedVillages((prev) => [...prev, v]);
                           }}
-                          onCreateOption={isAdmin ? createVillage : undefined}
+                          onCreateOption={createVillage}
                           creating={creating}
                           placeholder="Search or add village..."
                         />
@@ -847,7 +845,7 @@ export default function AddHelperModal({
                         setSelectedMun(v);
                         setSelectedWards([]);
                       }}
-                      onCreateOption={isAdmin ? createMun : undefined}
+                      onCreateOption={createMun}
                       creating={creating}
                       placeholder="Search or add Municipality..."
                     />
@@ -874,7 +872,7 @@ export default function AddHelperModal({
                             if (v && !selectedWards.includes(v))
                               setSelectedWards((prev) => [...prev, v]);
                           }}
-                          onCreateOption={isAdmin ? createWard : undefined}
+                          onCreateOption={createWard}
                           creating={creating}
                           placeholder="Search or add ward..."
                         />

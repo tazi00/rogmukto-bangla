@@ -38,12 +38,16 @@ export async function GET(req: NextRequest) {
     if (helperId) filter.helperId = helperId;
   }
 
-  const patients = await Patient.find(filter)
-    .populate(
-      "helperId",
-      "name block gramPanchayat subDivision tag blockCoordinatorId",
-    )
-    .sort({ createdAt: -1 });
+const patients = await Patient.find(filter)
+  .populate({
+    path: "helperId",
+    select: "name block gramPanchayat subDivision tag blockCoordinatorId",
+    populate: {
+      path: "blockCoordinatorId",
+      select: "name coordinatorId",
+    },
+  })
+  .sort({ createdAt: -1 });
   return NextResponse.json(patients);
 }
 

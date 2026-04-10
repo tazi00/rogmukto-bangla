@@ -12,6 +12,7 @@ interface BC {
   blocks: string[];
   address: string;
   username: string;
+  password: string;
 }
 interface SubDiv {
   _id: string;
@@ -37,6 +38,7 @@ export default function BlockCoordinatorsPage() {
   const [editItem, setEditItem] = useState<BC | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<
@@ -77,7 +79,7 @@ export default function BlockCoordinatorsPage() {
       blocks: bc.blocks || [],
       address: bc.address || "",
       username: bc.username || "",
-      password: "",
+      password: (bc as any).plainPassword || "",
     });
     setError("");
     setShowModal(true);
@@ -366,7 +368,7 @@ export default function BlockCoordinatorsPage() {
                       placeholder="Login username"
                     />
                   </div>
-                  <div className="form-group">
+                  <div className="form-group" style={{ position: "relative" }}>
                     <label className="form-label">
                       {editItem
                         ? "New Password (blank = no change)"
@@ -374,7 +376,7 @@ export default function BlockCoordinatorsPage() {
                     </label>
                     <input
                       className="form-input"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       required={!editItem}
                       value={form.password ?? ""}
                       onChange={(e) =>
@@ -382,6 +384,22 @@ export default function BlockCoordinatorsPage() {
                       }
                       placeholder="Password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="btn btn-secondary"
+                      style={{
+                        marginLeft: 8,
+                        right: 5,
+                        position: "absolute",
+                        top: "50%",
+                        transform:"translateY(-12%)",
+                        zIndex: 1,
+                        padding: "4px 8px",
+                      }}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
                   </div>
                 </div>
                 <div className="form-group">
