@@ -32,6 +32,7 @@ const EMPTY = {
 };
 
 export default function BlockCoordinatorsPage() {
+  const [role, setRole] = useState<string | null>(null);
   const [list, setList] = useState<BC[]>([]);
   const [locations, setLocations] = useState<SubDiv[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -47,6 +48,14 @@ export default function BlockCoordinatorsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
+    const cookies = document.cookie
+      .split(";")
+      .reduce<Record<string, string>>((acc, c) => {
+        const [k, v] = c.trim().split("=");
+        acc[k] = decodeURIComponent(v || "");
+        return acc;
+      }, {});
+    setRole(cookies["role_hint"] || null);
     load();
     fetch("/api/locations")
       .then((r) => r.json())
@@ -81,6 +90,7 @@ export default function BlockCoordinatorsPage() {
       username: bc.username || "",
       password: (bc as any).plainPassword || "",
     });
+    setShowPassword(true);
     setError("");
     setShowModal(true);
   }
@@ -256,18 +266,22 @@ export default function BlockCoordinatorsPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => openEdit(bc)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(bc._id)}
-                        >
-                          Delete
-                        </button>
+                        {role === "admin" && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openEdit(bc)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {role === "admin" && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleDelete(bc._id)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -370,9 +384,7 @@ export default function BlockCoordinatorsPage() {
                   </div>
                   <div className="form-group" style={{ position: "relative" }}>
                     <label className="form-label">
-                      {editItem
-                        ? "New Password (blank = no change)"
-                        : "Password *"}
+                      {editItem ? "Password (edit to change)" : "Password *"}
                     </label>
                     <input
                       className="form-input"
@@ -393,7 +405,7 @@ export default function BlockCoordinatorsPage() {
                         right: 5,
                         position: "absolute",
                         top: "50%",
-                        transform:"translateY(-12%)",
+                        transform: "translateY(-12%)",
                         zIndex: 1,
                         padding: "4px 8px",
                       }}

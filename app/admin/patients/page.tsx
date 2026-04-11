@@ -69,6 +69,7 @@ const EMPTY_FORM = {
 };
 
 export default function AdminPatientsPage() {
+  const [role, setRole] = useState<string | null>(null);
   const now = new Date();
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
   const [selMonth, setSelMonth] = useState(
@@ -98,6 +99,14 @@ export default function AdminPatientsPage() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const cookies = document.cookie
+      .split(";")
+      .reduce<Record<string, string>>((acc, c) => {
+        const [k, v] = c.trim().split("=");
+        acc[k] = decodeURIComponent(v || "");
+        return acc;
+      }, {});
+    setRole(cookies["role_hint"] || null);
     fetch("/api/helpers")
       .then((r) => r.json())
       .then((d) => setHelpers(Array.isArray(d) ? d : []));
@@ -459,18 +468,22 @@ export default function AdminPatientsPage() {
                           >
                             ₹
                           </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => openEdit(p)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(p._id)}
-                          >
-                            Del
-                          </button>
+                          {role === "admin" && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => openEdit(p)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {role === "admin" && (
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDelete(p._id)}
+                            >
+                              Del
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

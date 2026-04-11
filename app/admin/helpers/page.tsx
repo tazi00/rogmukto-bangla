@@ -61,6 +61,7 @@ const EMPTY_FORM = {
 };
 
 export default function HelpersPage() {
+  const [role, setRole] = useState<string | null>(null);
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [bcs, setBcs] = useState<BC[]>([]);
   const [locations, setLocations] = useState<SubDiv[]>([]);
@@ -89,6 +90,14 @@ export default function HelpersPage() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const cookies = document.cookie
+      .split(";")
+      .reduce<Record<string, string>>((acc, c) => {
+        const [k, v] = c.trim().split("=");
+        acc[k] = decodeURIComponent(v || "");
+        return acc;
+      }, {});
+    setRole(cookies["role_hint"] || null);
     load();
     fetch("/api/block-coordinators")
       .then((r) => r.json())
@@ -512,18 +521,22 @@ export default function HelpersPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => openEdit(h)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(h._id)}
-                        >
-                          Delete
-                        </button>
+                        {role === "admin" && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openEdit(h)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {role === "admin" && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleDelete(h._id)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -16,6 +16,7 @@ interface BC {
   _id: string;
   coordinatorId: string;
   name: string;
+  username: string;
   subDivision: string;
   blocks: string[];
 }
@@ -97,9 +98,17 @@ export default function BCPanel() {
     String(now.getMonth() + 1).padStart(2, "0"),
   );
   const [activeTab, setActiveTab] = useState<
-    "patients" | "discharge" | "helpers"
+    "patients" | "discharge" | "helpers" | "profile"
   >("patients");
   const [defaultAmount, setDefaultAmount] = useState(200);
+
+  // Profile state
+  const [profCurrent, setProfCurrent] = useState("");
+  const [profNew, setProfNew] = useState("");
+  const [profConfirm, setProfConfirm] = useState("");
+  const [profLoading, setProfLoading] = useState(false);
+  const [profError, setProfError] = useState("");
+  const [profSuccess, setProfSuccess] = useState("");
 
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [showHelperForm, setShowHelperForm] = useState(false);
@@ -143,10 +152,10 @@ export default function BCPanel() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/api/block-coordinators")
+    fetch("/api/profile/bc")
       .then((r) => r.json())
       .then((d) => {
-        if (Array.isArray(d) && d.length > 0) setBc(d[0]);
+        if (d?._id) setBc(d);
       });
     fetch("/api/settings")
       .then((r) => r.json())
@@ -535,6 +544,12 @@ export default function BCPanel() {
               onClick={() => setActiveTab("helpers")}
             >
               👥 Swasthya Bondhu
+            </button>
+            <button
+              className={`toggle-btn ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => setActiveTab("profile")}
+            >
+              👤 Profile
             </button>
           </div>
           {activeTab === "helpers" && (
@@ -1066,6 +1081,193 @@ export default function BCPanel() {
           onClose={() => setPaymentPatient(null)}
           onSave={loadPatients}
         />
+      )}
+
+      {/* PROFILE TAB */}
+      {activeTab === "profile" && bc && (
+        <div style={{ maxWidth: 440 }}>
+          {/* Avatar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              marginBottom: 28,
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "var(--green-dark)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#fff",
+                flexShrink: 0,
+              }}
+            >
+              {bc.name?.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 17 }}>{bc.name}</div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                @{bc.username}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                {bc.subDivision} — {bc.blocks?.join(", ")}
+              </div>
+            </div>
+          </div>
+
+          {/* Password change */}
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "20px 24px",
+            }}
+          >
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px 0" }}>
+              🔐 Change Password
+            </h3>
+            {profError && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                {profError}
+              </div>
+            )}
+            {profSuccess && (
+              <div className="alert alert-success" style={{ marginBottom: 12 }}>
+                {profSuccess}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Current Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profCurrent}
+                  onChange={(e) => setProfCurrent(e.target.value)}
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  New Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profNew}
+                  onChange={(e) => setProfNew(e.target.value)}
+                  placeholder="Enter new password"
+                />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Confirm New Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profConfirm}
+                  onChange={(e) => setProfConfirm(e.target.value)}
+                  placeholder="Confirm new password"
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                disabled={profLoading}
+                onClick={async () => {
+                  setProfError("");
+                  setProfSuccess("");
+                  if (!profCurrent || !profNew || !profConfirm) {
+                    setProfError("All fields are required");
+                    return;
+                  }
+                  if (profNew !== profConfirm) {
+                    setProfError("New passwords do not match");
+                    return;
+                  }
+                  if (profNew.length < 4) {
+                    setProfError("Password must be at least 4 characters");
+                    return;
+                  }
+                  setProfLoading(true);
+                  try {
+                    const res = await fetch("/api/profile/bc", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        currentPassword: profCurrent,
+                        newPassword: profNew,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setProfError(data.error || "Failed");
+                      return;
+                    }
+                    setProfSuccess("Password changed successfully!");
+                    setProfCurrent("");
+                    setProfNew("");
+                    setProfConfirm("");
+                  } finally {
+                    setProfLoading(false);
+                  }
+                }}
+              >
+                {profLoading ? "Saving..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

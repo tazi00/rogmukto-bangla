@@ -63,16 +63,29 @@ const MONTHS = [
 ];
 
 export default function ReceptionPage() {
+  const [role, setRole] = useState<string | null>(null);
   const router = useRouter();
   const now = new Date();
-  const [activeTab, setActiveTab] = useState<"admission" | "discharge">(
-    "admission",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "admission" | "discharge" | "profile"
+  >("admission");
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
   const [selMonth, setSelMonth] = useState(
     String(now.getMonth() + 1).padStart(2, "0"),
   );
   const [filterHelper, setFilterHelper] = useState("");
+
+  // Profile state
+  const [recProfile, setRecProfile] = useState<{
+    name: string;
+    username: string;
+  } | null>(null);
+  const [profCurrent, setProfCurrent] = useState("");
+  const [profNew, setProfNew] = useState("");
+  const [profConfirm, setProfConfirm] = useState("");
+  const [profLoading, setProfLoading] = useState(false);
+  const [profError, setProfError] = useState("");
+  const [profSuccess, setProfSuccess] = useState("");
 
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -94,6 +107,14 @@ export default function ReceptionPage() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const cookies = document.cookie
+      .split(";")
+      .reduce<Record<string, string>>((acc, c) => {
+        const [k, v] = c.trim().split("=");
+        acc[k] = decodeURIComponent(v || "");
+        return acc;
+      }, {});
+    setRole(cookies["role_hint"] || null);
     fetch("/api/helpers")
       .then((r) => r.json())
       .then((d) => setHelpers(Array.isArray(d) ? d : []));
@@ -105,6 +126,11 @@ export default function ReceptionPage() {
           ...f,
           incentiveAmount: String(d.defaultIncentiveAmount || 200),
         }));
+      });
+    fetch("/api/profile/receptionist")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.name) setRecProfile(d);
       });
   }, []);
 
@@ -271,6 +297,12 @@ export default function ReceptionPage() {
               onClick={() => setActiveTab("discharge")}
             >
               🚪 Patient Discharge
+            </button>
+            <button
+              className={`toggle-btn ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => setActiveTab("profile")}
+            >
+              👤 Profile
             </button>
           </div>
         </div>
@@ -741,6 +773,195 @@ export default function ReceptionPage() {
           }
           role="receptionist"
         />
+      )}
+
+      {/* PROFILE TAB */}
+      {activeTab === "profile" && (
+        <div style={{ padding: "0 24px 24px", maxWidth: 440 }}>
+          {/* Avatar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              marginBottom: 28,
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "var(--green-dark)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#fff",
+                flexShrink: 0,
+              }}
+            >
+              {recProfile?.name?.charAt(0).toUpperCase() ?? "?"}
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 17 }}>
+                {recProfile?.name ?? "—"}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                @{recProfile?.username ?? "—"}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginTop: 2,
+                }}
+              >
+                Receptionist
+              </div>
+            </div>
+          </div>
+
+          {/* Password change */}
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "20px 24px",
+            }}
+          >
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px 0" }}>
+              🔐 Change Password
+            </h3>
+            {profError && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                {profError}
+              </div>
+            )}
+            {profSuccess && (
+              <div className="alert alert-success" style={{ marginBottom: 12 }}>
+                {profSuccess}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Current Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profCurrent}
+                  onChange={(e) => setProfCurrent(e.target.value)}
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  New Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profNew}
+                  onChange={(e) => setProfNew(e.target.value)}
+                  placeholder="Enter new password"
+                />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Confirm New Password
+                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                  value={profConfirm}
+                  onChange={(e) => setProfConfirm(e.target.value)}
+                  placeholder="Confirm new password"
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                disabled={profLoading}
+                onClick={async () => {
+                  setProfError("");
+                  setProfSuccess("");
+                  if (!profCurrent || !profNew || !profConfirm) {
+                    setProfError("All fields are required");
+                    return;
+                  }
+                  if (profNew !== profConfirm) {
+                    setProfError("New passwords do not match");
+                    return;
+                  }
+                  if (profNew.length < 4) {
+                    setProfError("Password must be at least 4 characters");
+                    return;
+                  }
+                  setProfLoading(true);
+                  try {
+                    const res = await fetch("/api/profile/receptionist", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        currentPassword: profCurrent,
+                        newPassword: profNew,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setProfError(data.error || "Failed");
+                      return;
+                    }
+                    setProfSuccess("Password changed successfully!");
+                    setProfCurrent("");
+                    setProfNew("");
+                    setProfConfirm("");
+                  } finally {
+                    setProfLoading(false);
+                  }
+                }}
+              >
+                {profLoading ? "Saving..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

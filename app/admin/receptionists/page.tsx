@@ -5,6 +5,7 @@ interface Receptionist {
   _id: string;
   name: string;
   username: string;
+  plainPassword: string;
   createdAt: string;
 }
 const EMPTY = { name: "", username: "", password: "" };
@@ -21,6 +22,7 @@ export default function ReceptionistsPage() {
     "name",
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showPassword, setShowPassword] = useState(false);
 
   function toggleSort(key: typeof sortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -93,7 +95,12 @@ export default function ReceptionistsPage() {
   }
   function openEdit(r: Receptionist) {
     setEditItem(r);
-    setForm({ name: r.name, username: r.username, password: "" });
+    setForm({
+      name: r.name,
+      username: r.username,
+      password: r.plainPassword || "",
+    });
+    setShowPassword(true);
     setError("");
     setShowModal(true);
   }
@@ -259,20 +266,31 @@ export default function ReceptionistsPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">
-                    {editItem
-                      ? "New Password (leave blank to keep)"
-                      : "Password *"}
+                    {editItem ? "Password (edit to change)" : "Password *"}
                   </label>
-                  <input
-                    className="form-input"
-                    type="password"
-                    required={!editItem}
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm({ ...form, password: e.target.value })
-                    }
-                    placeholder="Password"
-                  />
+                  <div
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <input
+                      className="form-input"
+                      type={showPassword ? "text" : "password"}
+                      required={!editItem}
+                      value={form.password}
+                      onChange={(e) =>
+                        setForm({ ...form, password: e.target.value })
+                      }
+                      placeholder="Password"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
