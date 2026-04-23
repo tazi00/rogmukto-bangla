@@ -22,6 +22,7 @@ export default function LoginPage() {
       if (!res.ok) { setError(data.error || 'Invalid credentials'); return }
       if (data.role === 'admin') router.push('/admin')
       else if (data.role === 'block-coordinator') router.push('/block-coordinator')
+      else if (data.role === 'data-entry') router.push('/data-entry')
       else router.push('/reception')
     } catch { setError('Something went wrong.') }
     finally { setLoading(false) }

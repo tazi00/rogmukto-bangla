@@ -13,6 +13,7 @@ export interface IHelper extends Document {
   gramPanchayats: IGPAssignment[]
   municipalities: IMunAssignment[]
   tag: string
+  doj: Date
   createdAt: Date
 }
 
@@ -29,6 +30,7 @@ const HelperSchema = new Schema<IHelper>({
   gramPanchayats: [GPAssignmentSchema],
   municipalities: [MunAssignmentSchema],
   tag: { type: String, default: 'Swasthya Bondhu' },
+  doj: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
 })
 

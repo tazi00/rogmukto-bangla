@@ -116,6 +116,8 @@ function SBDetailInner() {
   const [dischargeFilter, setDischargeFilter] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
+  const [surveys, setSurveys] = useState<any[]>([]);
+  const [selectedSurvey, setSelectedSurvey] = useState<any | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBC, setIsBC] = useState(false);
   useEffect(() => {
@@ -151,6 +153,14 @@ function SBDetailInner() {
       if (patientsRes.ok) {
         const data = await patientsRes.json();
         setPatients(Array.isArray(data) ? data : []);
+      }
+      // Fetch surveys for this SB
+      const survRes = await fetch(`/api/surveys?sbId=${sbId}`);
+      if (survRes.ok) {
+        const survData = await survRes.json();
+        const list = Array.isArray(survData) ? survData : [];
+        setSurveys(list);
+        setSelectedSurvey(list.length > 0 ? list[0] : null);
       }
     } catch {
     } finally {
@@ -734,6 +744,94 @@ function SBDetailInner() {
           </div>
         </div>
       </div>
+
+      {/* ══ Survey Families Section ══ */}
+      {surveys.length > 0 && (
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 32px" }}>
+          <div style={{ display: "flex", gap: 24 }}>
+            {/* Left — family list */}
+            <div style={{ width: 260, flexShrink: 0 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+                Survey Families{" "}
+                <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-muted)" }}>({surveys.length})</span>
+              </h3>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                {surveys.map((s) => (
+                  <div key={s._id} onClick={() => setSelectedSurvey(s)}
+                    style={{
+                      padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid var(--border)",
+                      background: selectedSurvey?._id === s._id ? "#eff6ff" : "#fff",
+                      borderLeft: selectedSurvey?._id === s._id ? "3px solid #3b82f6" : "3px solid transparent",
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{s.familyName} Family</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
+                      {s.village || s.ward || "—"} · {new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    </div>
+                    {s.healthIssueDetected && s.healthIssues?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                        {s.healthIssues.slice(0, 2).map((hi: any, i: number) => {
+                          const cfg: any = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#ea580c", bg: "#fff7ed", border: "#fdba74" }, within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" }, others: { label: "Others", color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" } }[hi.type] || { label: hi.type, color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" };
+                          return <span key={i} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, fontWeight: 600 }}>{cfg.label}</span>;
+                        })}
+                        {s.healthIssues.length > 2 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>+{s.healthIssues.length - 2} more</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right — selected family detail */}
+            {selectedSurvey && (
+              <div style={{ flex: 1, background: "#fff", borderRadius: 10, border: "1px solid var(--border)", padding: "20px 24px" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selectedSurvey.familyName} Family</div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
+                  {selectedSurvey.village || selectedSurvey.ward || "—"} · Surveyed on {new Date(selectedSurvey.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: "Members", m: selectedSurvey.membersM, f: selectedSurvey.membersF },
+                    { label: "Children", m: selectedSurvey.childM, f: selectedSurvey.childF },
+                    { label: "Above 65", m: selectedSurvey.above65M, f: selectedSurvey.above65F },
+                  ].map(({ label, m, f }) => (
+                    <div key={label} style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{label}</div>
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Male</div><div style={{ fontSize: 18, fontWeight: 700 }}>{m}</div></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Female</div><div style={{ fontSize: 18, fontWeight: 700 }}>{f}</div></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {selectedSurvey.healthIssueDetected && selectedSurvey.healthIssues?.length > 0 ? (
+                  <>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🏥 Health Issues Detected</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {selectedSurvey.healthIssues.map((hi: any, i: number) => {
+                        const cfg: any = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#ea580c", bg: "#fff7ed", border: "#fdba74" }, within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" }, others: { label: "Others", color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" } }[hi.type] || { label: hi.type, color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" };
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 8, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: cfg.color }}>{hi.whose}</div>
+                              <div style={{ fontSize: 13, color: cfg.color, opacity: 0.8, marginTop: 2 }}>Age: {hi.age} years</div>
+                            </div>
+                            <span style={{ padding: "4px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: "#fff", color: cfg.color, border: `1.5px solid ${cfg.border}` }}>{cfg.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ padding: "14px 16px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #86efac", color: "#166534", fontSize: 14, fontWeight: 600 }}>
+                    ✅ No health issues detected
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Patient Detail Modal */}
       {selectedPatient && (

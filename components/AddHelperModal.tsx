@@ -43,7 +43,7 @@ interface SubDiv {
 interface Props {
   onClose: () => void;
   onSave: () => void;
-  role?: "admin" | "receptionist" | "block-coordinator";
+  role?: "admin" | "receptionist" | "block-coordinator" | "data-entry";
   currentBCId?: string; // logged-in BC's _id (only relevant when role === 'block-coordinator')
 }
 

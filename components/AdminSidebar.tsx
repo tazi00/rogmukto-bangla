@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
   { href: "/admin/helpers", label: "Swasthya Bondhu", icon: "👥" },
   { href: "/admin/patients", label: "Patients", icon: "🏥" },
   { href: "/admin/receptionists", label: "Receptionists", icon: "🖥" },
+  { href: "/admin/data-entry-operators", label: "Data Entry", icon: "📝" },
   { section: "Config" },
   { href: "/admin/settings", label: "Settings", icon: "⚙" },
   { section: "View" },
