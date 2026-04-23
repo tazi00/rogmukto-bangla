@@ -537,7 +537,7 @@ export default function DataEntryPage() {
       {showAddSB && (
         <AddHelperModal
           onClose={() => setShowAddSB(false)}
-          onSuccess={() => { setShowAddSB(false); loadHelpers(); }}
+          onSave={() => { setShowAddSB(false); loadHelpers(); }}
           role="data-entry"
         />
       )}
