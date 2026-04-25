@@ -1,29 +1,30 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IHealthIssue {
-  whose: string;       // naam ya relation e.g. "Grandfather"
+  whose: string;
   age: number;
   type: "serious" | "within_1_month" | "within_2_months" | "others";
 }
 
 export interface ISurvey extends Document {
-  sbId: mongoose.Types.ObjectId;         // ref: Helper
-  createdBy: mongoose.Types.ObjectId;    // ref: DataEntryOperator
+  sbId: mongoose.Types.ObjectId;
+  createdBy: mongoose.Types.ObjectId;
   createdByRole: "data-entry" | "admin";
   familyName: string;
+  mobile: string;
+  whatsapp: string;
   village: string;
   ward: string;
-  // Members count
   membersM: number;
   membersF: number;
   childM: number;
   childF: number;
   above65M: number;
   above65F: number;
-  // Health issues
   healthIssueDetected: boolean;
   healthIssues: IHealthIssue[];
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const HealthIssueSchema = new Schema<IHealthIssue>({
@@ -41,6 +42,8 @@ const SurveySchema = new Schema<ISurvey>({
   createdBy: { type: Schema.Types.ObjectId, refPath: "createdByRole" },
   createdByRole: { type: String, enum: ["data-entry", "admin"], default: "data-entry" },
   familyName: { type: String, required: true },
+  mobile: { type: String, default: "" },
+  whatsapp: { type: String, default: "" },
   village: { type: String, default: "" },
   ward: { type: String, default: "" },
   membersM: { type: Number, default: 0 },
@@ -51,10 +54,8 @@ const SurveySchema = new Schema<ISurvey>({
   above65F: { type: Number, default: 0 },
   healthIssueDetected: { type: Boolean, default: false },
   healthIssues: [HealthIssueSchema],
-  createdAt: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
-// Index for fast lookup by SB
 SurveySchema.index({ sbId: 1, createdAt: -1 });
 
 export default mongoose.models.Survey || mongoose.model<ISurvey>("Survey", SurveySchema);

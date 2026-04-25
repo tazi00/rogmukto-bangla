@@ -40,6 +40,8 @@ interface SurveyHealthIssue {
 interface Survey {
   _id: string;
   familyName: string;
+  mobile: string;
+  whatsapp: string;
   village: string;
   ward: string;
   membersM: number; membersF: number;
@@ -50,11 +52,17 @@ interface Survey {
   createdAt: string;
 }
 
+const EMPTY_SURVEY_FORM = {
+  familyName: "", mobile: "", whatsapp: "",
+  membersM: 0, membersF: 0, childM: 0, childF: 0, above65M: 0, above65F: 0,
+  healthIssueDetected: false,
+};
+
 const HEALTH_CONFIG = {
   serious:         { label: "Serious",         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
-  within_1_month:  { label: "Within 1 Month",  color: "#ea580c", bg: "#fff7ed", border: "#fdba74" },
-  within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" },
-  others:          { label: "Others",           color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" },
+  within_1_month:  { label: "Within 1 Month",  color: "#b45309", bg: "#fefce8", border: "#fde047" },
+  within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" },
+  others:          { label: "Others",           color: "#111827", bg: "#f3f4f6", border: "#9ca3af" },
 } as const;
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
@@ -111,6 +119,11 @@ export default function HelpersPage() {
   const [surveyList, setSurveyList] = useState<Survey[]>([]);
   const [surveyLoading, setSurveyLoading] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
+  const [editingSurvey, setEditingSurvey] = useState<Survey | null>(null);
+  const [surveyEditForm, setSurveyEditForm] = useState(EMPTY_SURVEY_FORM);
+  const [surveyEditHealthIssues, setSurveyEditHealthIssues] = useState<SurveyHealthIssue[]>([]);
+  const [surveyEditLoading, setSurveyEditLoading] = useState(false);
+  const [surveyEditError, setSurveyEditError] = useState("");
   const [bcs, setBcs] = useState<BC[]>([]);
   const [locations, setLocations] = useState<SubDiv[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -780,14 +793,153 @@ export default function HelpersPage() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 14 }}>
                       ← Family select karo
                     </div>
+                  ) : editingSurvey?._id === selectedSurvey._id ? (
+                    /* ── Edit Form ── */
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>Edit Survey</div>
+                        <button onClick={() => { setEditingSurvey(null); setSurveyEditError(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20 }}>✕</button>
+                      </div>
+                      {surveyEditError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{surveyEditError}</div>}
+                      <div className="form-group">
+                        <label className="form-label">Family Name *</label>
+                        <input className="form-input" value={surveyEditForm.familyName} onChange={(e) => setSurveyEditForm({ ...surveyEditForm, familyName: e.target.value })} />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                        <div className="form-group">
+                          <label className="form-label">Mobile</label>
+                          <input className="form-input" maxLength={10} value={(surveyEditForm as any).mobile || ""} onChange={(e) => setSurveyEditForm({ ...surveyEditForm, mobile: e.target.value } as any)} />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">WhatsApp</label>
+                          <input className="form-input" maxLength={10} value={(surveyEditForm as any).whatsapp || ""} onChange={(e) => setSurveyEditForm({ ...surveyEditForm, whatsapp: e.target.value } as any)} />
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                        {([
+                          { label: "Members", mKey: "membersM", fKey: "membersF" },
+                          { label: "Children", mKey: "childM", fKey: "childF" },
+                          { label: "Above 65", mKey: "above65M", fKey: "above65F" },
+                        ] as const).map(({ label, mKey, fKey }) => (
+                          <div key={label} style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--border)" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              {(["M", "F"] as const).map((g) => {
+                                const k = g === "M" ? mKey : fKey;
+                                return (
+                                  <div key={g} style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{g}</div>
+                                    <input type="number" min={0} className="form-input" style={{ padding: "4px 6px", fontSize: 13 }}
+                                      value={(surveyEditForm as any)[k]}
+                                      onChange={(e) => setSurveyEditForm({ ...surveyEditForm, [k]: Number(e.target.value) })}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, marginBottom: 10 }}>
+                          <input type="checkbox" checked={surveyEditForm.healthIssueDetected}
+                            onChange={(e) => { setSurveyEditForm({ ...surveyEditForm, healthIssueDetected: e.target.checked }); if (!e.target.checked) setSurveyEditHealthIssues([]); }}
+                          />
+                          Health issue detected?
+                        </label>
+                        {surveyEditForm.healthIssueDetected && (
+                          <>
+                            {surveyEditHealthIssues.map((issue, i) => (
+                              <div key={i} style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 12px", marginBottom: 8, border: "1px solid var(--border)", position: "relative" }}>
+                                <button type="button" onClick={() => setSurveyEditHealthIssues((p) => p.filter((_, idx) => idx !== i))}
+                                  style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", cursor: "pointer", color: "#dc2626" }}>✕</button>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 70px", gap: 8, marginBottom: 8 }}>
+                                  <div>
+                                    <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Whose</label>
+                                    <input className="form-input" value={issue.whose}
+                                      onChange={(e) => setSurveyEditHealthIssues((p) => p.map((it, idx) => idx === i ? { ...it, whose: e.target.value } : it))} />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Age</label>
+                                    <input type="number" min={0} className="form-input" value={issue.age}
+                                      onChange={(e) => setSurveyEditHealthIssues((p) => p.map((it, idx) => idx === i ? { ...it, age: Number(e.target.value) } : it))} />
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                  {(Object.entries(HEALTH_CONFIG) as [string, typeof HEALTH_CONFIG[keyof typeof HEALTH_CONFIG]][]).map(([key, cfg]) => (
+                                    <button key={key} type="button"
+                                      onClick={() => setSurveyEditHealthIssues((p) => p.map((it, idx) => idx === i ? { ...it, type: key as any } : it))}
+                                      style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer", background: issue.type === key ? cfg.bg : "#fff", color: issue.type === key ? cfg.color : "var(--text-muted)", border: `1.5px solid ${issue.type === key ? cfg.border : "var(--border)"}` }}
+                                    >{cfg.label}</button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => setSurveyEditHealthIssues((p) => [...p, { whose: "", age: 0, type: "others" }])}
+                              style={{ background: "none", border: "1.5px dashed var(--border)", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 13, color: "#1b4332", width: "100%" }}>
+                              + Add Health Issue
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={() => { setEditingSurvey(null); setSurveyEditError(""); }} className="btn btn-secondary">Cancel</button>
+                        <button disabled={surveyEditLoading} className="btn btn-primary"
+                          onClick={async () => {
+                            setSurveyEditLoading(true); setSurveyEditError("");
+                            try {
+                              const res = await fetch(`/api/surveys?id=${editingSurvey._id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ ...surveyEditForm, healthIssues: surveyEditForm.healthIssueDetected ? surveyEditHealthIssues : [] }),
+                              });
+                              if (!res.ok) { const d = await res.json(); setSurveyEditError(d.error || "Failed"); return; }
+                              const data = await fetch(`/api/surveys?sbId=${surveyModalSB!._id}`).then((r) => r.json());
+                              const list = Array.isArray(data) ? data : [];
+                              setSurveyList(list);
+                              setSelectedSurvey(list.find((s: Survey) => s._id === editingSurvey._id) || null);
+                              setEditingSurvey(null);
+                            } catch { setSurveyEditError("Something went wrong"); }
+                            finally { setSurveyEditLoading(false); }
+                          }}
+                        >{surveyEditLoading ? "Saving..." : "Save Changes"}</button>
+                      </div>
+                    </div>
                   ) : (
+                    /* ── View Detail ── */
                     <>
-                      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{selectedSurvey.familyName} Family</div>
-                      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                        <div style={{ fontSize: 20, fontWeight: 700 }}>{selectedSurvey.familyName} Family</div>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setEditingSurvey(selectedSurvey);
+                            setSurveyEditForm({
+                              familyName: selectedSurvey.familyName,
+                              membersM: selectedSurvey.membersM, membersF: selectedSurvey.membersF,
+                              childM: selectedSurvey.childM, childF: selectedSurvey.childF,
+                              above65M: selectedSurvey.above65M, above65F: selectedSurvey.above65F,
+                              healthIssueDetected: selectedSurvey.healthIssueDetected,
+                            } as any);
+                            setSurveyEditHealthIssues(selectedSurvey.healthIssues.map((h) => ({ ...h })));
+                            setSurveyEditError("");
+                          }}
+                        >✏ Edit</button>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
                         {selectedSurvey.village || selectedSurvey.ward || "—"} · Surveyed on {new Date(selectedSurvey.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                       </div>
-
-                      {/* Members grid */}
+                      {(selectedSurvey.mobile || selectedSurvey.whatsapp) && (
+                        <div style={{ display: "flex", gap: 20, marginBottom: 14, fontSize: 13 }}>
+                          {selectedSurvey.mobile && <span>📞 {selectedSurvey.mobile}</span>}
+                          {selectedSurvey.whatsapp && <span>💬 {selectedSurvey.whatsapp}</span>}
+                        </div>
+                      )}
+                      <div style={{ background: "#f0fdf4", borderRadius: 8, padding: "10px 16px", marginBottom: 16, border: "1px solid #86efac" }}>
+                        <span style={{ fontSize: 14, color: "#166534", fontWeight: 700 }}>
+                          👥 Total Members: {selectedSurvey.membersM + selectedSurvey.membersF + selectedSurvey.childM + selectedSurvey.childF + selectedSurvey.above65M + selectedSurvey.above65F}
+                        </span>
+                      </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
                         {[
                           { label: "Members", m: selectedSurvey.membersM, f: selectedSurvey.membersF },
@@ -803,8 +955,6 @@ export default function HelpersPage() {
                           </div>
                         ))}
                       </div>
-
-                      {/* Health Issues */}
                       {selectedSurvey.healthIssueDetected && selectedSurvey.healthIssues.length > 0 ? (
                         <>
                           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🏥 Health Issues Detected</div>
@@ -817,9 +967,7 @@ export default function HelpersPage() {
                                     <div style={{ fontWeight: 700, fontSize: 15, color: cfg.color }}>{hi.whose}</div>
                                     <div style={{ fontSize: 13, color: cfg.color, opacity: 0.8, marginTop: 2 }}>Age: {hi.age} years</div>
                                   </div>
-                                  <span style={{ padding: "4px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: "#fff", color: cfg.color, border: `1.5px solid ${cfg.border}` }}>
-                                    {cfg.label}
-                                  </span>
+                                  <span style={{ padding: "4px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: "#fff", color: cfg.color, border: `1.5px solid ${cfg.border}` }}>{cfg.label}</span>
                                 </div>
                               );
                             })}

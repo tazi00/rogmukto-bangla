@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const sbId = searchParams.get("sbId");
   const filter: any = {};
   if (sbId) filter.sbId = sbId;
-  // data-entry operator sirf apne surveys dekhega
+  // data-entry sirf apne surveys dekhega
   if (auth.role === "data-entry" && auth.id) filter.createdBy = auth.id;
   const surveys = await Survey.find(filter)
     .populate("sbId", "name helperId phone")
@@ -32,6 +32,18 @@ export async function POST(req: NextRequest) {
     createdByRole: auth.role === "admin" ? "admin" : "data-entry",
   });
   return NextResponse.json(survey, { status: 201 });
+}
+
+export async function PUT(req: NextRequest) {
+  const auth = await verifyAuth();
+  if (!auth || auth.role !== "admin")
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await connectDB();
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  const body = await req.json();
+  const updated = await Survey.findByIdAndUpdate(id, body, { new: true });
+  return NextResponse.json(updated);
 }
 
 export async function DELETE(req: NextRequest) {

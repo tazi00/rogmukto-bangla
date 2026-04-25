@@ -44,7 +44,8 @@ const HEALTH_CONFIG = {
 } as const;
 
 const EMPTY_SURVEY = {
-  familyName: "", membersM: 0, membersF: 0,
+  familyName: "", mobile: "", whatsapp: "",
+  membersM: 0, membersF: 0,
   childM: 0, childF: 0, above65M: 0, above65F: 0,
   healthIssueDetected: false,
 };
@@ -399,6 +400,16 @@ export default function DataEntryPage() {
                 <div className="form-group">
                   <label className="form-label">Family Name *</label>
                   <input className="form-input" placeholder="e.g. Dutta" value={surveyForm.familyName} onChange={(e) => setSurveyForm({ ...surveyForm, familyName: e.target.value })} required />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Mobile No.</label>
+                    <input className="form-input" placeholder="10-digit" maxLength={10} value={surveyForm.mobile ?? ""} onChange={(e) => setSurveyForm({ ...surveyForm, mobile: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">WhatsApp No.</label>
+                    <input className="form-input" placeholder="10-digit (if different)" maxLength={10} value={surveyForm.whatsapp ?? ""} onChange={(e) => setSurveyForm({ ...surveyForm, whatsapp: e.target.value })} />
+                  </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
                   {([

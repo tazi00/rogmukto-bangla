@@ -56,9 +56,9 @@ interface SBSurvey {
 }
 const VIEW_HEALTH_CONFIG = {
   serious:         { label: "Serious",         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
-  within_1_month:  { label: "Within 1 Month",  color: "#ea580c", bg: "#fff7ed", border: "#fdba74" },
-  within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" },
-  others:          { label: "Others",           color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" },
+  within_1_month:  { label: "Within 1 Month",  color: "#b45309", bg: "#fefce8", border: "#fde047" },
+  within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" },
+  others:          { label: "Others",           color: "#111827", bg: "#f3f4f6", border: "#9ca3af" },
 } as const;
 
 interface SBPerf {

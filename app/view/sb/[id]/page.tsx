@@ -771,7 +771,7 @@ function SBDetailInner() {
                     {s.healthIssueDetected && s.healthIssues?.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                         {s.healthIssues.slice(0, 2).map((hi: any, i: number) => {
-                          const _cfgMap: Record<string, {label:string;color:string;bg:string;border:string}> = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#ea580c", bg: "#fff7ed", border: "#fdba74" }, within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" }, others: { label: "Others", color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" } };
+                          const _cfgMap: Record<string, {label:string;color:string;bg:string;border:string}> = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#b45309", bg: "#fefce8", border: "#fde047" }, within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" }, others: { label: "Others", color: "#111827", bg: "#f3f4f6", border: "#9ca3af" } };
                             const cfg = _cfgMap[hi.type as string] || { label: String(hi.type), color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" };
                           return <span key={i} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, fontWeight: 600 }}>{cfg.label}</span>;
                         })}
@@ -810,7 +810,7 @@ function SBDetailInner() {
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🏥 Health Issues Detected</div>
                     <div style={{ display: "grid", gap: 10 }}>
                       {selectedSurvey.healthIssues.map((hi: any, i: number) => {
-                        const _cfgMap: Record<string, {label:string;color:string;bg:string;border:string}> = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#ea580c", bg: "#fff7ed", border: "#fdba74" }, within_2_months: { label: "Within 2 Months", color: "#ca8a04", bg: "#fefce8", border: "#fde047" }, others: { label: "Others", color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" } };
+                        const _cfgMap: Record<string, {label:string;color:string;bg:string;border:string}> = { serious: { label: "Serious", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" }, within_1_month: { label: "Within 1 Month", color: "#b45309", bg: "#fefce8", border: "#fde047" }, within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" }, others: { label: "Others", color: "#111827", bg: "#f3f4f6", border: "#9ca3af" } };
                             const cfg = _cfgMap[hi.type as string] || { label: String(hi.type), color: "#6b7280", bg: "#f9fafb", border: "#d1d5db" };
                         return (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 8, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
