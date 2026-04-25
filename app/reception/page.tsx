@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ReceptionHeader from "@/components/ReceptionistHeader";
@@ -102,6 +103,7 @@ export default function ReceptionPage() {
   const [showForm, setShowForm] = useState(false);
   const [showAddHelper, setShowAddHelper] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const dropRef = useRef<HTMLDivElement>(null);
@@ -264,6 +266,8 @@ export default function ReceptionPage() {
           p.helperId === (filterHelper as any),
       )
     : patients;
+
+  const pagedPatients = displayPatients.slice((page-1)*10, page*10);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -448,7 +452,7 @@ export default function ReceptionPage() {
                     </td>
                   </tr>
                 ) : (
-                  displayPatients.map((p) => (
+                  pagedPatients.map((p) => (
                     <tr key={p._id}>
                       <td>
                         <div style={{ fontWeight: 500, fontSize: 13 }}>
@@ -501,7 +505,9 @@ export default function ReceptionPage() {
         </div>
 
         {/* Add/Edit Patient Modal */}
-        {showForm && (
+        <Pagination total={displayPatients.length} page={page} pageSize={10} onPageChange={setPage} />
+
+      {showForm && (
           <div
             className="modal-overlay"
             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}

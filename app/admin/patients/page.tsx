@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState, useRef } from "react";
 import PaymentModal from "@/components/PaymentModal";
 import PatientAddressSelect, {
@@ -92,6 +93,7 @@ export default function AdminPatientsPage() {
   const [helperSearch, setHelperSearch] = useState("");
   const [showHelperDrop, setShowHelperDrop] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [patientSearch, setPatientSearch] = useState("");
   const [sortKey, setSortKey] = useState<"name" | "ipdNo" | "doa">("doa");
@@ -283,6 +285,8 @@ export default function AdminPatientsPage() {
             : 0;
     });
 
+  const pagedPatients = displayPatients.slice((page - 1) * 5, page * 5);
+
   return (
     <>
       <div className="page-header">
@@ -417,7 +421,7 @@ export default function AdminPatientsPage() {
                     </td>
                   </tr>
                 ) : (
-                  displayPatients.map((p) => (
+                  pagedPatients.map((p) => (
                     <tr key={p._id}>
                       <td style={{ fontWeight: 500 }}>{p.name}</td>
                       <td style={{ fontFamily: "monospace", fontSize: 12 }}>
@@ -494,7 +498,9 @@ export default function AdminPatientsPage() {
           </div>
         </div>
 
-        {showForm && (
+        <Pagination total={displayPatients.length} page={page} pageSize={5} onPageChange={setPage} />
+
+      {showForm && (
           <div
             className="modal-overlay"
             onClick={(e) => e.target === e.currentTarget && setShowForm(false)}

@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
 import MultiSearchSelect from "@/components/MultiSearchSelect";
@@ -42,6 +43,7 @@ export default function BlockCoordinatorsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<
     "coordinatorId" | "name" | "subDivision"
   >("name");
@@ -181,6 +183,8 @@ export default function BlockCoordinatorsPage() {
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
 
+  const pagedList = filteredList.slice((page - 1) * 5, page * 5);
+
   return (
     <>
       <div className="page-header">
@@ -195,7 +199,10 @@ export default function BlockCoordinatorsPage() {
             className="form-input"
             placeholder="🔍 Search by name or id or phone or sub division..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             style={{ maxWidth: 400, fontSize: 13 }}
           />
         </div>
@@ -227,7 +234,7 @@ export default function BlockCoordinatorsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredList.map((bc) => (
+                pagedList.map((bc) => (
                   <tr key={bc._id}>
                     <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                       {bc.coordinatorId}
@@ -291,6 +298,13 @@ export default function BlockCoordinatorsPage() {
           </table>
         </div>
       </div>
+
+      <Pagination
+        total={filteredList.length}
+        page={page}
+        pageSize={5}
+        onPageChange={setPage}
+      />
 
       {showModal && (
         <div

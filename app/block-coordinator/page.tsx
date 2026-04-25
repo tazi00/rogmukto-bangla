@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentModal from "@/components/PaymentModal";
@@ -92,6 +93,7 @@ const EMPTY_HELPER = {
 export default function BCPanel() {
   const router = useRouter();
   const now = new Date();
+  const [page, setPage] = useState(1);
   const [bc, setBc] = useState<BC | null>(null);
   const [selYear, setSelYear] = useState(String(now.getFullYear()));
   const [selMonth, setSelMonth] = useState(
@@ -469,6 +471,8 @@ export default function BCPanel() {
         : vb.localeCompare(va);
     });
 
+  const pagedHelpers = displayHelpers.slice((page-1)*10, page*10);
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
       {/* Header */}
@@ -773,7 +777,7 @@ export default function BCPanel() {
                       </td>
                     </tr>
                   ) : (
-                    displayHelpers.map((h) => (
+                    pagedHelpers.map((h) => (
                       <tr key={h._id}>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                           {h.helperId || "—"}
@@ -813,6 +817,8 @@ export default function BCPanel() {
       </div>
 
       {/* Add Helper Modal */}
+      <Pagination total={displayHelpers.length} page={page} pageSize={10} onPageChange={setPage} />
+
       {showHelperForm && (
         <AddHelperModal
           onClose={() => setShowHelperForm(false)}

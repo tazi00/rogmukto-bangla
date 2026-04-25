@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState } from "react";
 
 interface DataEntryOperator {
@@ -18,6 +19,7 @@ export default function DataEntryOperatorsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [sortKey, setSortKey] = useState<"name" | "username" | "createdAt">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -71,6 +73,8 @@ export default function DataEntryOperatorsPage() {
       return sortDir === "asc" ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0);
     });
 
+  const pagedList = filtered.slice((page-1)*5, page*5);
+
   return (
     <>
       <div className="page-header">
@@ -79,7 +83,7 @@ export default function DataEntryOperatorsPage() {
       </div>
       <div className="page-body">
         <div style={{ marginBottom: 14 }}>
-          <input className="form-input" placeholder="🔍 Search by name or username..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+          <input className="form-input" placeholder="🔍 Search by name or username..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} style={{ maxWidth: 360 }} />
         </div>
         <div className="table-wrapper">
           <table>
@@ -96,7 +100,7 @@ export default function DataEntryOperatorsPage() {
               {filtered.length === 0 ? (
                 <tr><td colSpan={5}><div className="empty-state"><p>{search ? "No results found." : "No operators added yet."}</p></div></td></tr>
               ) : (
-                filtered.map((op) => (
+                pagedList.map((op) => (
                   <tr key={op._id}>
                     <td style={{ fontWeight: 500 }}>{op.name}</td>
                     <td><span style={{ fontFamily: "monospace", fontSize: 12, background: "var(--gray-100)", padding: "2px 8px", borderRadius: 4 }}>{op.username}</span></td>
@@ -115,6 +119,8 @@ export default function DataEntryOperatorsPage() {
           </table>
         </div>
       </div>
+
+      <Pagination total={filtered.length} page={page} pageSize={5} onPageChange={setPage} />
 
       {showModal && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>

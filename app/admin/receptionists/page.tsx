@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState } from "react";
 
 interface Receptionist {
@@ -18,6 +19,7 @@ export default function ReceptionistsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<"name" | "username" | "createdAt">(
     "name",
   );
@@ -139,6 +141,8 @@ export default function ReceptionistsPage() {
     load();
   }
 
+  const pagedList = filteredList.slice((page-1)*5, page*5);
+
   return (
     <>
       <div className="page-header">
@@ -153,7 +157,7 @@ export default function ReceptionistsPage() {
             className="form-input"
             placeholder="🔍 Search by name ..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             style={{ maxWidth: 360, fontSize: 13 }}
           />
         </div>
@@ -181,7 +185,7 @@ export default function ReceptionistsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredList.map((r) => (
+                pagedList.map((r) => (
                   <tr key={r._id}>
                     <td style={{ fontWeight: 500 }}>{r.name}</td>
                     <td>
@@ -223,6 +227,8 @@ export default function ReceptionistsPage() {
           </table>
         </div>
       </div>
+
+      <Pagination total={filteredList.length} page={page} pageSize={5} onPageChange={setPage} />
 
       {showModal && (
         <div

@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState({
     blockCoordinators: 0,
     helpers: 0,
@@ -14,21 +16,15 @@ export default function AdminDashboard() {
     async function load() {
       const [helpers, patients, bcPerformance] = await Promise.all([
         fetch("/api/helpers").then((r) => r.json()),
-        fetch("/api/patients").then((r) => r.json()),
+        fetch("/api/patients?limit=0").then((r) => r.json()),
         fetch("/api/bc-performance").then((r) => r.json()),
       ]);
-      const pending = patients.filter(
-        (p: any) => p.paymentStatus === "pending",
-      ).length;
-      const cleared = patients.filter(
-        (p: any) => p.paymentStatus === "cleared",
-      ).length;
       setStats({
-        helpers: helpers.length,
-        patients: patients.length,
-        blockCoordinators: bcPerformance.length,
-        pending,
-        cleared,
+        helpers: Array.isArray(helpers) ? helpers.length : 0,
+        patients: patients?.count ?? 0,
+        blockCoordinators: Array.isArray(bcPerformance) ? bcPerformance.length : 0,
+        pending: 0,
+        cleared: 0,
       });
     }
     load();
@@ -57,20 +53,20 @@ export default function AdminDashboard() {
             marginBottom: 28,
           }}
         >
-          <div className="stat-card">
+          <div className="stat-card" onClick={() => router.push("/admin/block-coordinators")} style={{ cursor: "pointer" }}>
             <div className="stat-label">Total Block Coordinators</div>
             <div className="stat-value">{stats.blockCoordinators}</div>
-            <div className="stat-sub">All time</div>
+            <div className="stat-sub" style={{ color: "var(--green-dark)" }}>→ View list</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" onClick={() => router.push("/admin/helpers")} style={{ cursor: "pointer" }}>
             <div className="stat-label">Swasthya Bondhu</div>
             <div className="stat-value">{stats.helpers}</div>
-            <div className="stat-sub">Registered Swasthya Bondhu</div>
+            <div className="stat-sub" style={{ color: "var(--green-dark)" }}>→ View list</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card" onClick={() => router.push("/admin/patients")} style={{ cursor: "pointer" }}>
             <div className="stat-label">Total Patients</div>
             <div className="stat-value">{stats.patients}</div>
-            <div className="stat-sub">All time</div>
+            <div className="stat-sub" style={{ color: "var(--green-dark)" }}>→ View list</div>
           </div>
           {/* <div className="stat-card">
             <div className="stat-label">Pending Payment</div>

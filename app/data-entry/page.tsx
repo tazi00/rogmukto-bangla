@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AddHelperModal from "@/components/AddHelperModal";
@@ -64,6 +65,7 @@ export default function DataEntryPage() {
   // Surveys
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [surveysLoading, setSurveysLoading] = useState(false);
+  const [surveyPage, setSurveyPage] = useState(1);
 
   // SB search for survey creation
   const [sbSearch, setSbSearch] = useState("");
@@ -249,7 +251,7 @@ export default function DataEntryPage() {
               </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
-                {surveys.map((s) => (
+                {surveys.slice((surveyPage-1)*10, surveyPage*10).map((s) => (
                   <div key={s._id} style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--border)", padding: "16px 20px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div>
@@ -284,6 +286,7 @@ export default function DataEntryPage() {
                 ))}
               </div>
             )}
+            <Pagination total={surveys.length} page={surveyPage} pageSize={10} onPageChange={setSurveyPage} />
           </div>
         )}
 

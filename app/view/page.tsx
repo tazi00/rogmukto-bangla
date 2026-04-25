@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/Pagination";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -47,18 +48,41 @@ interface SBSurvey {
   familyName: string;
   village: string;
   ward: string;
-  membersM: number; membersF: number;
-  childM: number; childF: number;
-  above65M: number; above65F: number;
+  membersM: number;
+  membersF: number;
+  childM: number;
+  childF: number;
+  above65M: number;
+  above65F: number;
   healthIssueDetected: boolean;
   healthIssues: SBHealthIssue[];
   createdAt: string;
 }
 const VIEW_HEALTH_CONFIG = {
-  serious:         { label: "Serious",         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
-  within_1_month:  { label: "Within 1 Month",  color: "#b45309", bg: "#fefce8", border: "#fde047" },
-  within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" },
-  others:          { label: "Others",           color: "#111827", bg: "#f3f4f6", border: "#9ca3af" },
+  serious: {
+    label: "Serious",
+    color: "#dc2626",
+    bg: "#fef2f2",
+    border: "#fca5a5",
+  },
+  within_1_month: {
+    label: "Within 1 Month",
+    color: "#b45309",
+    bg: "#fefce8",
+    border: "#fde047",
+  },
+  within_2_months: {
+    label: "Within 2 Months",
+    color: "#166534",
+    bg: "#f0fdf4",
+    border: "#86efac",
+  },
+  others: {
+    label: "Others",
+    color: "#111827",
+    bg: "#f3f4f6",
+    border: "#9ca3af",
+  },
 } as const;
 
 interface SBPerf {
@@ -85,24 +109,81 @@ interface SBPerf {
 // ── Inline tooltip for GP/Village in view page ──────────────────────────────
 function ViewInfoTooltip({ items, label }: { items: string[]; label: string }) {
   const [visible, setVisible] = useState(false);
-  if (items.length === 0) return <span style={{ color: "var(--text-muted)" }}>—</span>;
+  if (items.length === 0)
+    return <span style={{ color: "var(--text-muted)" }}>—</span>;
   const first = items[0];
   const hasMore = items.length > 1;
   return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+      }}
+    >
       <span style={{ fontSize: 12 }}>{first}</span>
       {hasMore && (
         <span
           onMouseEnter={() => setVisible(true)}
           onMouseLeave={() => setVisible(false)}
-          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 17, height: 17, borderRadius: "50%", background: "var(--green-mid, #2d6a4f)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "default", flexShrink: 0 }}
-        >ⓘ</span>
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 17,
+            height: 17,
+            borderRadius: "50%",
+            background: "var(--green-mid, #2d6a4f)",
+            color: "#fff",
+            fontSize: 10,
+            fontWeight: 700,
+            cursor: "default",
+            flexShrink: 0,
+          }}
+        >
+          ⓘ
+        </span>
       )}
       {visible && hasMore && (
-        <div style={{ position: "absolute", top: "calc(100% + 5px)", left: 0, zIndex: 500, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 180, padding: "8px 12px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 5px)",
+            left: 0,
+            zIndex: 500,
+            background: "#fff",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            minWidth: 180,
+            padding: "8px 12px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--text-muted)",
+              marginBottom: 5,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {label}
+          </div>
           {items.map((item, i) => (
-            <div key={i} style={{ fontSize: 12, padding: "3px 0", borderBottom: i < items.length - 1 ? "1px solid var(--border)" : "none" }}>{item}</div>
+            <div
+              key={i}
+              style={{
+                fontSize: 12,
+                padding: "3px 0",
+                borderBottom:
+                  i < items.length - 1 ? "1px solid var(--border)" : "none",
+              }}
+            >
+              {item}
+            </div>
           ))}
         </div>
       )}
@@ -371,6 +452,7 @@ function ViewPageInner() {
   // SB data + filters
   const [sbPerf, setSbPerf] = useState<SBPerf[]>([]);
   const [sbSearch, setSbSearch] = useState("");
+  const [sbPage, setSbPage] = useState(1);
   const [sbBCFilter, setSbBCFilter] = useState("");
   // Cascading location filters
   const [sbSDFilter, setSbSDFilter] = useState("");
@@ -393,11 +475,17 @@ function ViewPageInner() {
   const [allHelpers, setAllHelpers] = useState<any[]>([]);
   // Patient data + filters
   // Survey modal state (view page)
-  const [viewSurveyModalSB, setViewSurveyModalSB] = useState<SBPerf["helper"] | null>(null);
+  const [viewSurveyModalSB, setViewSurveyModalSB] = useState<
+    SBPerf["helper"] | null
+  >(null);
   const [viewSurveyList, setViewSurveyList] = useState<SBSurvey[]>([]);
   const [viewSurveyLoading, setViewSurveyLoading] = useState(false);
-  const [viewSelectedSurvey, setViewSelectedSurvey] = useState<SBSurvey | null>(null);
-  const [viewSurveyCounts, setViewSurveyCounts] = useState<Record<string, number>>({});
+  const [viewSelectedSurvey, setViewSelectedSurvey] = useState<SBSurvey | null>(
+    null,
+  );
+  const [viewSurveyCounts, setViewSurveyCounts] = useState<
+    Record<string, number>
+  >({});
 
   const [patientStats, setPatientStats] = useState({ total: 0 });
   const [allPatients, setAllPatients] = useState<any[]>([]);
@@ -437,9 +525,11 @@ function ViewPageInner() {
         const counts: Record<string, number> = {};
         await Promise.all(
           helpers.map(async (h: any) => {
-            const res = await fetch(`/api/surveys?sbId=${h._id}`).then((r) => r.json());
+            const res = await fetch(`/api/surveys?sbId=${h._id}`).then((r) =>
+              r.json(),
+            );
             counts[h._id] = Array.isArray(res) ? res.length : 0;
-          })
+          }),
         );
         setViewSurveyCounts(counts);
       });
@@ -449,7 +539,9 @@ function ViewPageInner() {
     setViewSurveyModalSB(helper);
     setViewSelectedSurvey(null);
     setViewSurveyLoading(true);
-    const data = await fetch(`/api/surveys?sbId=${helper._id}`).then((r) => r.json());
+    const data = await fetch(`/api/surveys?sbId=${helper._id}`).then((r) =>
+      r.json(),
+    );
     const list = Array.isArray(data) ? data : [];
     setViewSurveyList(list);
     setViewSelectedSurvey(list.length > 0 ? list[0] : null);
@@ -621,7 +713,7 @@ function ViewPageInner() {
     }
   }
 
-  const displaySBs = sbPerf
+  const _displaySBs = sbPerf
     .filter((row) => {
       if (sbIdFilter === "with" && !row.helper.helperId) return false;
       if (sbIdFilter === "without" && row.helper.helperId) return false;
@@ -680,6 +772,8 @@ function ViewPageInner() {
         typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
       return sbSortDir === "asc" ? r : -r;
     });
+
+  const displaySBs = _displaySBs.slice((sbPage - 1) * 5, sbPage * 5);
 
   function writeXlsx(rows: any[], name: string) {
     if (!rows.length) return;
@@ -1270,7 +1364,7 @@ function ViewPageInner() {
                   fontWeight: 400,
                 }}
               >
-                ({displaySBs.length})
+                ({_displaySBs.length})
               </span>
             </h3>
             <div
@@ -1289,7 +1383,10 @@ function ViewPageInner() {
                   className="form-input"
                   placeholder="Search by ID or name or phone or block..."
                   value={sbSearch}
-                  onChange={(e) => setSbSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSbSearch(e.target.value);
+                    setSbPage(1);
+                  }}
                   style={{ width: 230, fontSize: 13 }}
                 />
               </div>
@@ -1591,7 +1688,9 @@ function ViewPageInner() {
                     <th style={{ whiteSpace: "nowrap" }}>Village / Ward</th>
 
                     {(isAdmin || role === "receptionist") && (
-                      <th style={{ whiteSpace: "nowrap" }}>Block Coordinator</th>
+                      <th style={{ whiteSpace: "nowrap" }}>
+                        Block Coordinator
+                      </th>
                     )}
                     <SortTh
                       label="Patients"
@@ -1600,7 +1699,9 @@ function ViewPageInner() {
                       sortDir={sbSortDir}
                       onSort={toggleSBSort}
                     />
-                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Survey Report</th>
+                    <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                      Survey Report
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1691,21 +1792,48 @@ function ViewPageInner() {
                         </td>
                         <td style={{ fontSize: 12 }}>{row.helper.block}</td>
                         {/* DOJ */}
-                        <td style={{ fontSize: 12, whiteSpace: "nowrap", color: "var(--text-muted)" }}>
+                        <td
+                          style={{
+                            fontSize: 12,
+                            whiteSpace: "nowrap",
+                            color: "var(--text-muted)",
+                          }}
+                        >
                           {row.helper.doj
-                            ? new Date(row.helper.doj).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                            ? new Date(row.helper.doj).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )
                             : "—"}
                         </td>
 
                         {/* GP / Municipality — first item + ⓘ hover */}
                         <td style={{ fontSize: 12 }}>
                           {(() => {
-                            const gpNames = row.helper.gramPanchayats?.map((g) => `🌿 ${g.gpName}`) || [];
-                            const munNames = row.helper.municipalities?.map((m) => `🏙 ${m.municipalityName}`) || [];
+                            const gpNames =
+                              row.helper.gramPanchayats?.map(
+                                (g) => `🌿 ${g.gpName}`,
+                              ) || [];
+                            const munNames =
+                              row.helper.municipalities?.map(
+                                (m) => `🏙 ${m.municipalityName}`,
+                              ) || [];
                             const all = [...gpNames, ...munNames];
-                            if (all.length === 0) return <span style={{ color: "var(--text-muted)" }}>—</span>;
+                            if (all.length === 0)
+                              return (
+                                <span style={{ color: "var(--text-muted)" }}>
+                                  —
+                                </span>
+                              );
                             return (
-                              <ViewInfoTooltip items={all} label="GP / Municipality" />
+                              <ViewInfoTooltip
+                                items={all}
+                                label="GP / Municipality"
+                              />
                             );
                           })()}
                         </td>
@@ -1713,11 +1841,27 @@ function ViewPageInner() {
                         {/* Village / Ward */}
                         <td style={{ fontSize: 12 }}>
                           {(() => {
-                            const villages = row.helper.gramPanchayats?.flatMap((g) => g.villages.map((v) => `🏘 ${v}`)) || [];
-                            const wards = row.helper.municipalities?.flatMap((m) => m.wards.map((w) => `🔢 ${w}`)) || [];
+                            const villages =
+                              row.helper.gramPanchayats?.flatMap((g) =>
+                                g.villages.map((v) => `🏘 ${v}`),
+                              ) || [];
+                            const wards =
+                              row.helper.municipalities?.flatMap((m) =>
+                                m.wards.map((w) => `🔢 ${w}`),
+                              ) || [];
                             const all = [...villages, ...wards];
-                            if (all.length === 0) return <span style={{ color: "var(--text-muted)" }}>—</span>;
-                            return <ViewInfoTooltip items={all} label="Village / Ward" />;
+                            if (all.length === 0)
+                              return (
+                                <span style={{ color: "var(--text-muted)" }}>
+                                  —
+                                </span>
+                              );
+                            return (
+                              <ViewInfoTooltip
+                                items={all}
+                                label="Village / Ward"
+                              />
+                            );
                           })()}
                         </td>
 
@@ -1758,14 +1902,28 @@ function ViewPageInner() {
                         {/* Survey Report */}
                         <td style={{ textAlign: "center" }}>
                           {(viewSurveyCounts[row.helper._id] ?? 0) === 0 ? (
-                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              —
+                            </span>
                           ) : (
                             <button
                               onClick={() => openViewSurveyModal(row.helper)}
                               style={{
-                                display: "inline-flex", alignItems: "center", gap: 5,
-                                padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-                                background: "#eff6ff", color: "#1d4ed8", border: "1.5px solid #93c5fd",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "4px 12px",
+                                borderRadius: 20,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                border: "1.5px solid #93c5fd",
                                 cursor: "pointer",
                               }}
                             >
@@ -1781,6 +1939,12 @@ function ViewPageInner() {
                 </tbody>
               </table>
             </div>
+            <Pagination
+              total={_displaySBs.length}
+              page={sbPage}
+              pageSize={5}
+              onPageChange={setSbPage}
+            />
           </div>
         )}
         {/* ── PATIENT TABLE ── */}
@@ -2668,98 +2832,401 @@ function ViewPageInner() {
             </div>
           </div>
         )}
-
         {/* ══ View Survey Modal ══ */}
         {viewSurveyModalSB && (
           <div
             className="modal-overlay"
-            onClick={(e) => { if (e.target === e.currentTarget) { setViewSurveyModalSB(null); setViewSelectedSurvey(null); } }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewSurveyModalSB(null);
+                setViewSelectedSurvey(null);
+              }
+            }}
           >
-            <div style={{ background: "#fff", borderRadius: 12, width: "90vw", maxWidth: 900, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
-              <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 12,
+                width: "90vw",
+                maxWidth: 900,
+                maxHeight: "88vh",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+              }}
+            >
+              <div
+                style={{
+                  padding: "18px 24px",
+                  borderBottom: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <div>
-                  <div style={{ fontSize: 17, fontWeight: 700 }}>Survey Report — {viewSurveyModalSB.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 3 }}>{viewSurveyModalSB.helperId || "—"} · {viewSurveyModalSB.subDivision} · {viewSurveyModalSB.block}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>
+                    Survey Report — {viewSurveyModalSB.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--text-muted)",
+                      marginTop: 3,
+                    }}
+                  >
+                    {viewSurveyModalSB.helperId || "—"} ·{" "}
+                    {viewSurveyModalSB.subDivision} · {viewSurveyModalSB.block}
+                  </div>
                 </div>
-                <button onClick={() => { setViewSurveyModalSB(null); setViewSelectedSurvey(null); }} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
+                <button
+                  onClick={() => {
+                    setViewSurveyModalSB(null);
+                    setViewSelectedSurvey(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 22,
+                    cursor: "pointer",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  ✕
+                </button>
               </div>
               {viewSurveyLoading ? (
-                <div style={{ padding: 48, textAlign: "center", color: "var(--text-muted)" }}>Loading...</div>
+                <div
+                  style={{
+                    padding: 48,
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Loading...
+                </div>
               ) : viewSurveyList.length === 0 ? (
-                <div style={{ padding: 48, textAlign: "center", color: "var(--text-muted)" }}>
+                <div
+                  style={{
+                    padding: 48,
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                  }}
+                >
                   <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
                   <div>Koi survey nahi mila</div>
                 </div>
               ) : (
                 <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-                  <div style={{ width: 260, borderRight: "1px solid var(--border)", overflowY: "auto", flexShrink: 0 }}>
-                    <div style={{ padding: "10px 16px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
-                      {viewSurveyList.length} {viewSurveyList.length === 1 ? "Family" : "Families"}
+                  <div
+                    style={{
+                      width: 260,
+                      borderRight: "1px solid var(--border)",
+                      overflowY: "auto",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "10px 16px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {viewSurveyList.length}{" "}
+                      {viewSurveyList.length === 1 ? "Family" : "Families"}
                     </div>
                     {viewSurveyList.map((s) => (
-                      <div key={s._id} onClick={() => setViewSelectedSurvey(s)}
-                        style={{ padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: viewSelectedSurvey?._id === s._id ? "#eff6ff" : "transparent", borderLeft: viewSelectedSurvey?._id === s._id ? "3px solid #3b82f6" : "3px solid transparent" }}
+                      <div
+                        key={s._id}
+                        onClick={() => setViewSelectedSurvey(s)}
+                        style={{
+                          padding: "12px 16px",
+                          cursor: "pointer",
+                          borderBottom: "1px solid var(--border)",
+                          background:
+                            viewSelectedSurvey?._id === s._id
+                              ? "#eff6ff"
+                              : "transparent",
+                          borderLeft:
+                            viewSelectedSurvey?._id === s._id
+                              ? "3px solid #3b82f6"
+                              : "3px solid transparent",
+                        }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{s.familyName} Family</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
-                          {s.village || s.ward || "—"} · {new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          {s.familyName} Family
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                            marginTop: 3,
+                          }}
+                        >
+                          {s.village || s.ward || "—"} ·{" "}
+                          {new Date(s.createdAt).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
                         </div>
                         {s.healthIssueDetected && s.healthIssues.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 4,
+                              marginTop: 6,
+                            }}
+                          >
                             {s.healthIssues.slice(0, 2).map((hi, i) => {
-                              const cfg = VIEW_HEALTH_CONFIG[hi.type] || VIEW_HEALTH_CONFIG.others;
-                              return <span key={i} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, fontWeight: 600 }}>{cfg.label}</span>;
+                              const cfg =
+                                VIEW_HEALTH_CONFIG[hi.type] ||
+                                VIEW_HEALTH_CONFIG.others;
+                              return (
+                                <span
+                                  key={i}
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "2px 7px",
+                                    borderRadius: 20,
+                                    background: cfg.bg,
+                                    color: cfg.color,
+                                    border: `1px solid ${cfg.border}`,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {cfg.label}
+                                </span>
+                              );
                             })}
-                            {s.healthIssues.length > 2 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>+{s.healthIssues.length - 2} more</span>}
+                            {s.healthIssues.length > 2 && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                +{s.healthIssues.length - 2} more
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
-                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+                  <div
+                    style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}
+                  >
                     {!viewSelectedSurvey ? (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)" }}>← Family select karo</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "100%",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        ← Family select karo
+                      </div>
                     ) : (
                       <>
-                        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{viewSelectedSurvey.familyName} Family</div>
-                        <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
-                          {viewSelectedSurvey.village || viewSelectedSurvey.ward || "—"} · {new Date(viewSelectedSurvey.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                        <div
+                          style={{
+                            fontSize: 20,
+                            fontWeight: 700,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {viewSelectedSurvey.familyName} Family
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            color: "var(--text-muted)",
+                            marginBottom: 20,
+                          }}
+                        >
+                          {viewSelectedSurvey.village ||
+                            viewSelectedSurvey.ward ||
+                            "—"}{" "}
+                          ·{" "}
+                          {new Date(
+                            viewSelectedSurvey.createdAt,
+                          ).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1fr",
+                            gap: 12,
+                            marginBottom: 20,
+                          }}
+                        >
                           {[
-                            { label: "Members", m: viewSelectedSurvey.membersM, f: viewSelectedSurvey.membersF },
-                            { label: "Children", m: viewSelectedSurvey.childM, f: viewSelectedSurvey.childF },
-                            { label: "Above 65", m: viewSelectedSurvey.above65M, f: viewSelectedSurvey.above65F },
+                            {
+                              label: "Members",
+                              m: viewSelectedSurvey.membersM,
+                              f: viewSelectedSurvey.membersF,
+                            },
+                            {
+                              label: "Children",
+                              m: viewSelectedSurvey.childM,
+                              f: viewSelectedSurvey.childF,
+                            },
+                            {
+                              label: "Above 65",
+                              m: viewSelectedSurvey.above65M,
+                              f: viewSelectedSurvey.above65F,
+                            },
                           ].map(({ label, m, f }) => (
-                            <div key={label} style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", border: "1px solid var(--border)" }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>{label}</div>
+                            <div
+                              key={label}
+                              style={{
+                                background: "#f9fafb",
+                                borderRadius: 8,
+                                padding: "12px 16px",
+                                border: "1px solid var(--border)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
+                                  marginBottom: 8,
+                                }}
+                              >
+                                {label}
+                              </div>
                               <div style={{ display: "flex", gap: 16 }}>
-                                <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Male</div><div style={{ fontSize: 18, fontWeight: 700 }}>{m}</div></div>
-                                <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Female</div><div style={{ fontSize: 18, fontWeight: 700 }}>{f}</div></div>
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                    }}
+                                  >
+                                    Male
+                                  </div>
+                                  <div
+                                    style={{ fontSize: 18, fontWeight: 700 }}
+                                  >
+                                    {m}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                    }}
+                                  >
+                                    Female
+                                  </div>
+                                  <div
+                                    style={{ fontSize: 18, fontWeight: 700 }}
+                                  >
+                                    {f}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
-                        {viewSelectedSurvey.healthIssueDetected && viewSelectedSurvey.healthIssues.length > 0 ? (
+                        {viewSelectedSurvey.healthIssueDetected &&
+                        viewSelectedSurvey.healthIssues.length > 0 ? (
                           <>
-                            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🏥 Health Issues Detected</div>
+                            <div
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 700,
+                                marginBottom: 12,
+                              }}
+                            >
+                              🏥 Health Issues Detected
+                            </div>
                             <div style={{ display: "grid", gap: 10 }}>
                               {viewSelectedSurvey.healthIssues.map((hi, i) => {
-                                const cfg = VIEW_HEALTH_CONFIG[hi.type] || VIEW_HEALTH_CONFIG.others;
+                                const cfg =
+                                  VIEW_HEALTH_CONFIG[hi.type] ||
+                                  VIEW_HEALTH_CONFIG.others;
                                 return (
-                                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 8, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+                                  <div
+                                    key={i}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 14,
+                                      padding: "12px 16px",
+                                      borderRadius: 8,
+                                      background: cfg.bg,
+                                      border: `1px solid ${cfg.border}`,
+                                    }}
+                                  >
                                     <div style={{ flex: 1 }}>
-                                      <div style={{ fontWeight: 700, fontSize: 15, color: cfg.color }}>{hi.whose}</div>
-                                      <div style={{ fontSize: 13, color: cfg.color, opacity: 0.8, marginTop: 2 }}>Age: {hi.age} years</div>
+                                      <div
+                                        style={{
+                                          fontWeight: 700,
+                                          fontSize: 15,
+                                          color: cfg.color,
+                                        }}
+                                      >
+                                        {hi.whose}
+                                      </div>
+                                      <div
+                                        style={{
+                                          fontSize: 13,
+                                          color: cfg.color,
+                                          opacity: 0.8,
+                                          marginTop: 2,
+                                        }}
+                                      >
+                                        Age: {hi.age} years
+                                      </div>
                                     </div>
-                                    <span style={{ padding: "4px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: "#fff", color: cfg.color, border: `1.5px solid ${cfg.border}` }}>{cfg.label}</span>
+                                    <span
+                                      style={{
+                                        padding: "4px 14px",
+                                        borderRadius: 20,
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        background: "#fff",
+                                        color: cfg.color,
+                                        border: `1.5px solid ${cfg.border}`,
+                                      }}
+                                    >
+                                      {cfg.label}
+                                    </span>
                                   </div>
                                 );
                               })}
                             </div>
                           </>
                         ) : (
-                          <div style={{ padding: "14px 16px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #86efac", color: "#166534", fontSize: 14, fontWeight: 600 }}>
+                          <div
+                            style={{
+                              padding: "14px 16px",
+                              borderRadius: 8,
+                              background: "#f0fdf4",
+                              border: "1px solid #86efac",
+                              color: "#166534",
+                              fontSize: 14,
+                              fontWeight: 600,
+                            }}
+                          >
                             ✅ No health issues detected
                           </div>
                         )}
@@ -2771,7 +3238,6 @@ function ViewPageInner() {
             </div>
           </div>
         )}
-
         ;
       </div>
     </div>
