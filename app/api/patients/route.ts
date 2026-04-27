@@ -11,6 +11,14 @@ export async function GET(req: NextRequest) {
   const helperId = searchParams.get("helperId");
   const month = searchParams.get("month");
   const status = searchParams.get("status");
+  const page = parseInt(searchParams.get("page") || "0");   // 0 = all (backward compat)
+  const limit = parseInt(searchParams.get("limit") || "0"); // 0 = all
+
+  // count-only mode for dashboard
+  if (limit === 0 && searchParams.get("countOnly") === "true") {
+    const count = await Patient.countDocuments({});
+    return NextResponse.json({ count });
+  }
 
   const filter: any = {};
   if (status) filter.paymentStatus = status;
@@ -19,73 +27,70 @@ export async function GET(req: NextRequest) {
     filter.doa = { $gte: new Date(year, m - 1, 1), $lt: new Date(year, m, 1) };
   }
 
-  // BC: restrict to only their helpers' patients — enforced server-side via JWT
   if (auth?.role === "block-coordinator" && auth.id) {
-    // Get all helpers under this BC
-    const bcHelpers = await Helper.find({ blockCoordinatorId: auth.id }).select(
-      "_id",
-    );
-    const bcHelperIds = bcHelpers.map((h) => h._id);
-    // If a specific helperId is requested, make sure it belongs to this BC
+    // Use lean + select for BC helper lookup — no full doc needed
+    const bcHelperIds = await Helper.find({ blockCoordinatorId: auth.id })
+      .select("_id")
+      .lean();
+    const ids = bcHelperIds.map((h: any) => h._id);
     if (helperId) {
-      const isOwn = bcHelperIds.some((id) => id.toString() === helperId);
-      filter.helperId = isOwn ? helperId : null; // null = return empty if not own
+      const isOwn = ids.some((id: any) => id.toString() === helperId);
+      filter.helperId = isOwn ? helperId : null;
     } else {
-      filter.helperId = { $in: bcHelperIds };
+      filter.helperId = { $in: ids };
     }
   } else {
-    // Admin / receptionist: use helperId filter directly if provided
     if (helperId) filter.helperId = helperId;
   }
 
-const patients = await Patient.find(filter)
-  .populate({
-    path: "helperId",
-    select: "name block gramPanchayat subDivision tag blockCoordinatorId",
-    populate: {
-      path: "blockCoordinatorId",
-      select: "name coordinatorId",
-    },
-  })
-  .sort({ createdAt: -1 });
+  // Build query with lean() for plain JS objects — much faster than full Mongoose docs
+  let query = Patient.find(filter)
+    .populate({
+      path: "helperId",
+      select: "name block gramPanchayat subDivision tag blockCoordinatorId",
+      populate: { path: "blockCoordinatorId", select: "name coordinatorId" },
+    })
+    .sort({ doa: -1 })
+    .lean();
+
+  // Server-side pagination if requested
+  if (page > 0 && limit > 0) {
+    query = query.skip((page - 1) * limit).limit(limit) as any;
+  }
+
+  const patients = await query;
   return NextResponse.json(patients);
 }
 
 export async function POST(req: NextRequest) {
   const auth = await verifyAuth();
-  if (!auth || (auth.role !== "receptionist" && auth.role !== "admin")) {
+  if (!auth || (auth.role !== "receptionist" && auth.role !== "admin"))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   await connectDB();
   const body = await req.json();
   const patient = await Patient.create(body);
-  const populated = await patient.populate(
-    "helperId",
-    "name block gramPanchayat subDivision tag",
-  );
+  const populated = await patient.populate("helperId", "name block gramPanchayat subDivision tag");
   return NextResponse.json(populated, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
   const auth = await verifyAuth();
-  if (!auth || (auth.role !== "receptionist" && auth.role !== "admin")) {
+  if (!auth || (auth.role !== "receptionist" && auth.role !== "admin"))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   await connectDB();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const body = await req.json();
-  const updated = await Patient.findByIdAndUpdate(id, body, {
-    new: true,
-  }).populate("helperId", "name block gramPanchayat subDivision tag");
+  const updated = await Patient.findByIdAndUpdate(id, body, { new: true })
+    .populate("helperId", "name block gramPanchayat subDivision tag")
+    .lean();
   return NextResponse.json(updated);
 }
 
 export async function DELETE(req: NextRequest) {
   const auth = await verifyAuth();
-  if (!auth || (auth.role !== "receptionist" && auth.role !== "admin")) {
+  if (!auth || auth.role !== "admin")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   await connectDB();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

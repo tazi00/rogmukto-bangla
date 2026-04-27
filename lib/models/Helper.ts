@@ -17,8 +17,14 @@ export interface IHelper extends Document {
   createdAt: Date
 }
 
-const GPAssignmentSchema = new Schema<IGPAssignment>({ gpName: { type: String, required: true }, villages: [{ type: String }] })
-const MunAssignmentSchema = new Schema<IMunAssignment>({ municipalityName: { type: String, required: true }, wards: [{ type: String }] })
+const GPAssignmentSchema = new Schema<IGPAssignment>({
+  gpName: { type: String, required: true },
+  villages: [{ type: String }]
+})
+const MunAssignmentSchema = new Schema<IMunAssignment>({
+  municipalityName: { type: String, required: true },
+  wards: [{ type: String }]
+})
 
 const HelperSchema = new Schema<IHelper>({
   helperId: { type: String, default: '' },
@@ -33,5 +39,15 @@ const HelperSchema = new Schema<IHelper>({
   doj: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
 })
+
+// ── Indexes ────────────────────────────────────────────────────────────────
+// BC ke saare helpers fetch karna — most common query
+HelperSchema.index({ blockCoordinatorId: 1 })
+// Location based filtering
+HelperSchema.index({ subDivision: 1, block: 1 })
+// Sort by latest
+HelperSchema.index({ createdAt: -1 })
+// Search by helperId
+HelperSchema.index({ helperId: 1 })
 
 export default mongoose.models.Helper || mongoose.model<IHelper>('Helper', HelperSchema)

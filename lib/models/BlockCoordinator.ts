@@ -26,5 +26,9 @@ const BlockCoordinatorSchema = new Schema<IBlockCoordinator>({
   createdAt: { type: Date, default: Date.now },
 });
 
+// ── Indexes ────────────────────────────────────────────────────────────────
+BlockCoordinatorSchema.index({ subDivision: 1 })
+BlockCoordinatorSchema.index({ createdAt: -1 })
+
 export default mongoose.models.BlockCoordinator ||
   mongoose.model<IBlockCoordinator>("BlockCoordinator", BlockCoordinatorSchema);

@@ -10,13 +10,16 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(req.url);
   const sbId = searchParams.get("sbId");
+
   const filter: any = {};
   if (sbId) filter.sbId = sbId;
-  // data-entry sirf apne surveys dekhega
   if (auth.role === "data-entry" && auth.id) filter.createdBy = auth.id;
+
   const surveys = await Survey.find(filter)
     .populate("sbId", "name helperId phone")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
+
   return NextResponse.json(surveys);
 }
 
@@ -42,7 +45,7 @@ export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const body = await req.json();
-  const updated = await Survey.findByIdAndUpdate(id, body, { new: true });
+  const updated = await Survey.findByIdAndUpdate(id, body, { new: true }).lean();
   return NextResponse.json(updated);
 }
 

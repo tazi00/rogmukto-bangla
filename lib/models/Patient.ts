@@ -22,7 +22,6 @@ export interface IPatient extends Document {
   address: IPatientAddress
   paymentStatus: 'pending' | 'clearance'
   paymentDetail: IPaymentDetail
-  // Discharge fields
   dischargeStatus: 'admitted' | 'continued' | 'transferred'
   dischargeDate: Date | null
   blockingAmount: number
@@ -61,5 +60,19 @@ const PatientSchema = new Schema<IPatient>({
   incentiveDisabled: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 })
+
+// ── Indexes ────────────────────────────────────────────────────────────────
+// Most common query: fetch patients by helperId
+PatientSchema.index({ helperId: 1 })
+// Filter by month (doa range queries)
+PatientSchema.index({ doa: -1 })
+// Combined: helperId + doa — most used in reports & sb detail page
+PatientSchema.index({ helperId: 1, doa: -1 })
+// Payment filter
+PatientSchema.index({ paymentStatus: 1 })
+// Discharge status filter
+PatientSchema.index({ dischargeStatus: 1 })
+// BC performance queries: helperId + paymentStatus
+PatientSchema.index({ helperId: 1, paymentStatus: 1 })
 
 export default mongoose.models.Patient || mongoose.model<IPatient>('Patient', PatientSchema)

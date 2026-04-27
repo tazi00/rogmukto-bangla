@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await connectDB();
-  const list = await Receptionist.find({}, "-password").sort({ createdAt: -1 });
+  const list = await Receptionist.find({}, "-password").lean().sort({ createdAt: -1 });
   return NextResponse.json(list);
 }
 
