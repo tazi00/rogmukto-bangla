@@ -16,7 +16,7 @@ export default function AdminDashboard() {
     async function load() {
       const [helpers, patients, bcPerformance] = await Promise.all([
         fetch("/api/helpers").then((r) => r.json()),
-        fetch("/api/patients?limit=0").then((r) => r.json()),
+        fetch("/api/patients?countOnly=true").then((r) => r.json()),
         fetch("/api/bc-performance").then((r) => r.json()),
       ]);
       setStats({

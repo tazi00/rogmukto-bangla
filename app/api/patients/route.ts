@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
   const month = searchParams.get("month");
   const status = searchParams.get("status");
   const page = parseInt(searchParams.get("page") || "0");   // 0 = all (backward compat)
-  const limit = parseInt(searchParams.get("limit") || "0"); // 0 = all
+  const limit = parseInt(searchParams.get("limit") || "0");
 
-  // count-only mode for dashboard
-  if (limit === 0 && searchParams.get("countOnly") === "true") {
+  // count-only mode for dashboard — fast countDocuments only
+  if (searchParams.get("countOnly") === "true") {
     const count = await Patient.countDocuments({});
     return NextResponse.json({ count });
   }

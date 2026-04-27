@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (block) helperFilter.block = block;
   if (gramPanchayat) helperFilter.gramPanchayat = gramPanchayat;
   if (helperId) helperFilter._id = helperId;
-  if (endOfMonth) helperFilter.createdAt = { $lt: endOfMonth };
+  // Note: No createdAt filter on helpers — show ALL SBs regardless of when they were created
   if (auth?.role === "block-coordinator" && auth.id)
     helperFilter.blockCoordinatorId = auth.id;
 
