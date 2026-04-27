@@ -516,21 +516,13 @@ function ViewPageInner() {
       .then((r) => r.json())
       .then((d) => setLocations(Array.isArray(d) ? d : []));
 
-    fetch("/api/helpers")
+    fetch("/api/helpers?withCounts=true")
       .then((r) => r.json())
-      .then(async (d) => {
+      .then((d) => {
         const helpers = Array.isArray(d) ? d : [];
         setAllHelpers(helpers);
-        // Fetch survey counts for all helpers
         const counts: Record<string, number> = {};
-        await Promise.all(
-          helpers.map(async (h: any) => {
-            const res = await fetch(`/api/surveys?sbId=${h._id}`).then((r) =>
-              r.json(),
-            );
-            counts[h._id] = Array.isArray(res) ? res.length : 0;
-          }),
-        );
+        helpers.forEach((h: any) => { counts[h._id] = h.surveyCount ?? 0; });
         setViewSurveyCounts(counts);
       });
   }, []);

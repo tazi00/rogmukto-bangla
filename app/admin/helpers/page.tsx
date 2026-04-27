@@ -286,32 +286,17 @@ export default function HelpersPage() {
   }, []);
 
   async function load() {
-    const data = await fetch("/api/helpers").then((r) => r.json());
+    const data = await fetch("/api/helpers?withCounts=true").then((r) => r.json());
     const helperList: Helper[] = Array.isArray(data) ? data : [];
     setHelpers(helperList);
-    // Fetch patient counts per helper
-    const counts: Record<string, number> = {};
-    await Promise.all(
-      helperList.map(async (h) => {
-        const res = await fetch(`/api/patients?helperId=${h._id}`).then((r) =>
-          r.json(),
-        );
-        counts[h._id] = Array.isArray(res) ? res.length : 0;
-      }),
-    );
-    setPatientCounts(counts);
-
-    // Fetch survey counts per helper
-    const sCounts: Record<string, number> = {};
-    await Promise.all(
-      helperList.map(async (h) => {
-        const res = await fetch(`/api/surveys?sbId=${h._id}`).then((r) =>
-          r.json(),
-        );
-        sCounts[h._id] = Array.isArray(res) ? res.length : 0;
-      }),
-    );
-    setSurveyCounts(sCounts);
+    const pMap: Record<string, number> = {};
+    const sMap: Record<string, number> = {};
+    helperList.forEach((h: any) => {
+      pMap[h._id] = (h as any).patientCount ?? 0;
+      sMap[h._id] = (h as any).surveyCount ?? 0;
+    });
+    setPatientCounts(pMap);
+    setSurveyCounts(sMap);
   }
 
   async function openSurveyModal(h: Helper) {
