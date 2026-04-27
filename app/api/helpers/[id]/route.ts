@@ -4,10 +4,11 @@ import Helper from "@/lib/models/Helper";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   await connectDB();
-  const helper = await Helper.findById(params.id)
+  const helper = await Helper.findById(id)
     .populate("blockCoordinatorId", "name coordinatorId")
     .lean();
   if (!helper) return NextResponse.json({ error: "Not found" }, { status: 404 });
