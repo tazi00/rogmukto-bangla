@@ -106,6 +106,13 @@ interface SBPerf {
   clearedIncentive: number;
 }
 
+const SURVEY_HEALTH_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  serious:         { label: "Serious",         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
+  within_1_month:  { label: "Within 1 Month",  color: "#b45309", bg: "#fefce8", border: "#fde047" },
+  within_2_months: { label: "Within 2 Months", color: "#166534", bg: "#f0fdf4", border: "#86efac" },
+  others:          { label: "Others",           color: "#111827", bg: "#f3f4f6", border: "#9ca3af" },
+};
+
 // ── Inline tooltip for GP/Village in view page ──────────────────────────────
 function ViewInfoTooltip({ items, label }: { items: string[]; label: string }) {
   const [visible, setVisible] = useState(false);
@@ -410,7 +417,7 @@ function ViewPageInner() {
   const [selYear, setSelYear] = useState(initYear);
   const [selMonth, setSelMonth] = useState(initMon);
 
-  const [activeSection, setActiveSection] = useState<"bc" | "sb" | "patient">(
+  const [activeSection, setActiveSection] = useState<"bc" | "sb" | "patient" | "survey">(
     "bc",
   );
 
@@ -488,6 +495,16 @@ function ViewPageInner() {
   >({});
 
   const [patientStats, setPatientStats] = useState({ total: 0 });
+  // Survey tab state
+  const [surveyList, setSurveyList] = useState<any[]>([]);
+  const [surveyLoading, setSurveyLoading] = useState(false);
+  const [surveyTotal, setSurveyTotal] = useState(0);
+  const [surveyPage, setSurveyPage] = useState(1);
+  const [surveySubDiv, setSurveySubDiv] = useState("");
+  const [surveyBlock, setSurveyBlock] = useState("");
+  const [surveySearch, setSurveySearch] = useState("");
+  const [surveyDateFrom, setSurveyDateFrom] = useState("");
+  const [surveyDateTo, setSurveyDateTo] = useState("");
   const [allPatients, setAllPatients] = useState<any[]>([]);
   const [patSearch, setPatSearch] = useState("");
   const [patSortKey, setPatSortKey] = useState("doa");
@@ -526,6 +543,22 @@ function ViewPageInner() {
         setViewSurveyCounts(counts);
       });
   }, []);
+
+  async function fetchSurveys() {
+    setSurveyLoading(true);
+    const params = new URLSearchParams();
+    if (surveySubDiv) params.set("subDivision", surveySubDiv);
+    if (surveyBlock) params.set("block", surveyBlock);
+    if (surveySearch) params.set("sbSearch", surveySearch);
+    if (surveyDateFrom) params.set("dateFrom", surveyDateFrom);
+    if (surveyDateTo) params.set("dateTo", surveyDateTo);
+    const data = await fetch(`/api/surveys?${params.toString()}`).then((r) => r.json());
+    const list = Array.isArray(data) ? data : [];
+    setSurveyList(list);
+    setSurveyTotal(list.length);
+    setSurveyPage(1);
+    setSurveyLoading(false);
+  }
 
   async function openViewSurveyModal(helper: SBPerf["helper"]) {
     setViewSurveyModalSB(helper);
@@ -1098,6 +1131,25 @@ function ViewPageInner() {
                 marginTop: 2,
               }}
             >
+              Click to view list
+            </div>
+          </div>
+          <div
+            onClick={() => { setActiveSection("survey"); fetchSurveys(); }}
+            style={{
+              padding: "16px 20px",
+              background: activeSection === "survey" ? "var(--green-dark)" : "var(--surface)",
+              border: `2px solid ${activeSection === "survey" ? "var(--green-dark)" : "var(--border)"}`,
+              borderRadius: "var(--radius-sm)", cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 600, color: activeSection === "survey" ? "rgba(255,255,255,0.7)" : "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Survey Reports
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: activeSection === "survey" ? "#fff" : "var(--text)", marginTop: 4 }}>
+              {surveyTotal}
+            </div>
+            <div style={{ fontSize: 11, color: activeSection === "survey" ? "rgba(255,255,255,0.6)" : "var(--text-muted)", marginTop: 2 }}>
               Click to view list
             </div>
           </div>
@@ -2822,6 +2874,170 @@ function ViewPageInner() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+        {/* ══ SURVEY REPORTS TAB ══ */}
+        {activeSection === "survey" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
+                Survey Reports <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>({surveyTotal})</span>
+              </h3>
+              <button
+                onClick={() => {
+                  const rows = surveyList.map((s: any) => {
+                    const sb = s.sbId;
+                    const hiRows = s.healthIssues?.length > 0
+                      ? s.healthIssues.map((h: any) => `${h.whose} (${h.age}y) - ${SURVEY_HEALTH_CONFIG[h.type]?.label || h.type}`).join(" | ")
+                      : "None";
+                    return {
+                      "Family Name": s.familyName,
+                      "Mobile": s.mobile || "—",
+                      "WhatsApp": s.whatsapp || "—",
+                      "Village/Ward": s.village || s.ward || "—",
+                      "Members M": s.membersM, "Members F": s.membersF,
+                      "Children M": s.childM, "Children F": s.childF,
+                      "Above 65 M": s.above65M, "Above 65 F": s.above65F,
+                      "Health Issues": hiRows,
+                      "Swasthya Bondhu": sb?.name || "—",
+                      "SB ID": sb?.helperId || "—",
+                      "Block": sb?.block || "—",
+                      "Block Coordinator": (sb?.blockCoordinatorId as any)?.name || "—",
+                      "Survey Date": new Date(s.createdAt).toLocaleDateString("en-IN"),
+                    };
+                  });
+                  const ws = XLSX.utils.json_to_sheet(rows);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Survey Reports");
+                  XLSX.writeFile(wb, `Survey_Reports.xlsx`);
+                }}
+                className="btn btn-secondary"
+                style={{ fontSize: 13 }}
+              >
+                📥 Export Excel
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>SUB DIVISION</div>
+                <select className="form-input" style={{ minWidth: 160 }} value={surveySubDiv}
+                  onChange={(e) => setSurveySubDiv(e.target.value)}>
+                  <option value="">All Sub Divisions</option>
+                  {[...new Set((allHelpers as any[]).map((h) => h.subDivision).filter(Boolean))].sort().map((sd: any) => (
+                    <option key={sd} value={sd}>{sd}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>BLOCK</div>
+                <select className="form-input" style={{ minWidth: 140 }} value={surveyBlock}
+                  onChange={(e) => setSurveyBlock(e.target.value)}>
+                  <option value="">All Blocks</option>
+                  {[...new Set((allHelpers as any[]).filter((h) => !surveySubDiv || h.subDivision === surveySubDiv).map((h) => h.block).filter(Boolean))].sort().map((b: any) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>SWASTHYA BONDHU</div>
+                <input className="form-input" style={{ minWidth: 200 }} placeholder="Search by name or ID..."
+                  value={surveySearch} onChange={(e) => setSurveySearch(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>DATE FROM</div>
+                <input type="date" className="form-input" value={surveyDateFrom} onChange={(e) => setSurveyDateFrom(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>DATE TO</div>
+                <input type="date" className="form-input" value={surveyDateTo} onChange={(e) => setSurveyDateTo(e.target.value)} />
+              </div>
+              <button className="btn btn-primary" onClick={fetchSurveys} style={{ alignSelf: "flex-end" }}>Apply</button>
+              <button className="btn btn-secondary" style={{ alignSelf: "flex-end" }}
+                onClick={() => { setSurveySubDiv(""); setSurveyBlock(""); setSurveySearch(""); setSurveyDateFrom(""); setSurveyDateTo(""); setTimeout(fetchSurveys, 0); }}>
+                Clear
+              </button>
+            </div>
+
+            {surveyLoading ? (
+              <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Loading...</div>
+            ) : surveyList.length === 0 ? (
+              <div className="empty-state"><p>No survey reports found.</p></div>
+            ) : (
+              <>
+                <div className="table-wrapper" style={{ overflowX: "auto" }}>
+                  <table style={{ fontSize: 13, minWidth: 1400 }}>
+                    <thead>
+                      <tr>
+                        <th>Family Name</th>
+                        <th>Mobile</th>
+                        <th>WhatsApp</th>
+                        <th>Village / Ward</th>
+                        <th style={{ textAlign: "center" }}>Members</th>
+                        <th style={{ textAlign: "center" }}>Children</th>
+                        <th style={{ textAlign: "center" }}>Above 65</th>
+                        <th>Health Issues</th>
+                        <th>Swasthya Bondhu</th>
+                        <th>Block</th>
+                        <th>Block Coordinator</th>
+                        <th>Survey Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {surveyList.slice((surveyPage - 1) * 10, surveyPage * 10).map((s: any) => {
+                        const sb = s.sbId as any;
+                        const bc = sb?.blockCoordinatorId as any;
+                        return (
+                          <tr key={s._id}>
+                            <td style={{ fontWeight: 600 }}>{s.familyName} Family</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.mobile || "—"}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 12 }}>{s.whatsapp || "—"}</td>
+                            <td>{s.village || s.ward || "—"}</td>
+                            <td style={{ textAlign: "center", fontSize: 12 }}>M:{s.membersM} F:{s.membersF}</td>
+                            <td style={{ textAlign: "center", fontSize: 12 }}>M:{s.childM} F:{s.childF}</td>
+                            <td style={{ textAlign: "center", fontSize: 12 }}>M:{s.above65M} F:{s.above65F}</td>
+                            <td style={{ maxWidth: 280 }}>
+                              {s.healthIssueDetected && s.healthIssues?.length > 0 ? (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                  {s.healthIssues.map((hi: any, i: number) => {
+                                    const cfg = SURVEY_HEALTH_CONFIG[hi.type] || SURVEY_HEALTH_CONFIG.others;
+                                    return (
+                                      <span key={i} style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: "nowrap" }}>
+                                        {hi.whose} ({hi.age}y) — {cfg.label}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>
+                              )}
+                            </td>
+                            <td>
+                              {sb ? (
+                                <span
+                                  onClick={() => router.push(`/view/sb/${sb._id}`)}
+                                  style={{ color: "var(--green-dark)", textDecoration: "underline", cursor: "pointer", fontSize: 12 }}
+                                >
+                                  {sb.name}
+                                  {sb.helperId && <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>({sb.helperId})</span>}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td style={{ fontSize: 12 }}>{sb?.block || "—"}</td>
+                            <td style={{ fontSize: 12 }}>{bc?.name || "—"}</td>
+                            <td style={{ fontSize: 12, whiteSpace: "nowrap", color: "var(--text-muted)" }}>
+                              {new Date(s.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination total={surveyTotal} page={surveyPage} pageSize={10} onPageChange={setSurveyPage} />
+              </>
+            )}
           </div>
         )}
         {/* ══ View Survey Modal ══ */}
